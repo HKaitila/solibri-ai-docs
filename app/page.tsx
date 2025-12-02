@@ -3,16 +3,29 @@
 import { useState } from 'react';
 
 export default function Home() {
-  const [releaseNotes, setReleaseNotes] = useState('');
+  const [inputMode, setInputMode] = useState<'text' | 'url'>('text');
+  const [releaseNotesText, setReleaseNotesText] = useState('');
+  const [releaseNotesUrl, setReleaseNotesUrl] = useState('');
   const [generatedArticle, setGeneratedArticle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [articleTitle, setArticleTitle] = useState('');
 
   const handleGenerate = async () => {
-    if (!releaseNotes.trim()) {
-      setError('Please paste release notes first.');
-      return;
+    let releaseNotes = '';
+
+    if (inputMode === 'text') {
+      releaseNotes = releaseNotesText.trim();
+      if (!releaseNotes) {
+        setError('Please paste release notes first.');
+        return;
+      }
+    } else {
+      releaseNotes = releaseNotesUrl.trim();
+      if (!releaseNotes) {
+        setError('Please paste a URL first.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -24,18 +37,22 @@ export default function Home() {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ releaseNotes }),
+        body: JSON.stringify({ 
+          releaseNotes,
+          isUrl: inputMode === 'url'
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate article');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate article');
       }
 
       const data = await response.json();
       setGeneratedArticle(data.article);
       setArticleTitle(data.title || 'Help Article');
     } catch (err) {
-      setError('Error generating article. Please try again.');
+      setError(err instanceof Error ? err.message : 'Error generating article. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -60,7 +77,6 @@ export default function Home() {
   };
 
   const exportXML = () => {
-    // Basic Paligo-compatible DITA XML structure
     const topicId = articleTitle.toLowerCase().replace(/\s+/g, '-');
     const sections = generatedArticle.split('\n\n').filter(s => s.trim());
     
@@ -140,7 +156,8 @@ export default function Home() {
   };
 
   const handleClearAll = () => {
-    setReleaseNotes('');
+    setReleaseNotesText('');
+    setReleaseNotesUrl('');
     setGeneratedArticle('');
     setArticleTitle('');
     setError('');
@@ -163,17 +180,67 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left: Input */}
           <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
               Release Notes Input
             </h2>
 
-            <textarea
-              value={releaseNotes}
-              onChange={(e) => setReleaseNotes(e.target.value)}
-              placeholder="Paste your Solibri release notes here..."
-              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none font-mono text-sm"
-            />
+            {/* Input Mode Tabs */}
+            <div className="flex gap-2 mb-6 border-b border-gray-300">
+              <button
+                onClick={() => {
+                  setInputMode('text');
+                  setError('');
+                }}
+                className={`pb-2 px-4 font-semibold transition ${
+                  inputMode === 'text'
+                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📝 Paste Text
+              </button>
+              <button
+                onClick={() => {
+                  setInputMode('url');
+                  setError('');
+                }}
+                className={`pb-2 px-4 font-semibold transition ${
+                  inputMode === 'url'
+                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🔗 From URL
+              </button>
+            </div>
 
+            {/* Text Input */}
+            {inputMode === 'text' && (
+              <textarea
+                value={releaseNotesText}
+                onChange={(e) => setReleaseNotesText(e.target.value)}
+                placeholder="Paste your Solibri release notes here..."
+                className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none font-mono text-sm"
+              />
+            )}
+
+            {/* URL Input */}
+            {inputMode === 'url' && (
+              <div>
+                <input
+                  type="url"
+                  value={releaseNotesUrl}
+                  onChange={(e) => setReleaseNotesUrl(e.target.value)}
+                  placeholder="e.g., https://www.solibri.com/articles/release-notes"
+                  className="w-full p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                />
+                <p className="mt-2 text-sm text-gray-600">
+                  🔍 Paste the URL to your release notes. The tool will fetch and extract the content.
+                </p>
+              </div>
+            )}
+
+            {/* Buttons */}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleGenerate}
@@ -221,25 +288,25 @@ export default function Home() {
                       navigator.clipboard.writeText(generatedArticle);
                       alert('Copied to clipboard!');
                     }}
-                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
                   >
                     📋 Copy
                   </button>
                   <button
                     onClick={exportMarkdown}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
                   >
                     📄 Markdown
                   </button>
                   <button
                     onClick={exportXML}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
                   >
                     ⚙️ Paligo XML
                   </button>
                   <button
                     onClick={exportHTML}
-                    className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                    className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
                   >
                     🌐 HTML
                   </button>

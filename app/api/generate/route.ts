@@ -1,14 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+async function fetchUrlContent(url: string): Promise<string> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch URL: ${response.statusText}`);
+    }
+
+    const html = await response.text();
+
+    // Simple HTML text extraction (removes tags, keeps text content)
+    const text = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!text || text.length < 50) {
+      throw new Error('Could not extract meaningful content from URL');
+    }
+
+    return text;
+  } catch (error) {
+    throw new Error(`Error fetching URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { releaseNotes } = await request.json();
+    const { releaseNotes, isUrl } = await request.json();
 
     if (!releaseNotes || !releaseNotes.trim()) {
       return NextResponse.json(
-        { error: 'Release notes are required' },
+        { error: 'Release notes or URL are required' },
         { status: 400 }
       );
+    }
+
+    let contentToProcess = releaseNotes;
+
+    // If URL mode, fetch the content
+    if (isUrl) {
+      try {
+        contentToProcess = await fetchUrlContent(releaseNotes);
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Failed to fetch URL content' },
+          { status: 400 }
+        );
+      }
     }
 
     const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -28,7 +74,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-                messages: [
+        messages: [
           {
             role: 'system',
             content: `You are a professional technical writer for Solibri, a BIM (Building Information Modeling) software. 
@@ -48,10 +94,9 @@ Use bullet points liberally for readability.`,
           },
           {
             role: 'user',
-            content: `Please convert these Solibri release notes into a professional help center article. Format it clearly with sections and bullet points:\n\n${releaseNotes}`,
+            content: `Please convert these Solibri release notes into a professional help center article. Format it clearly with sections and bullet points:\n\n${contentToProcess}`,
           },
         ],
-
         temperature: 0.7,
         max_tokens: 2000,
       }),
