@@ -7,6 +7,7 @@ export default function Home() {
   const [generatedArticle, setGeneratedArticle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [articleTitle, setArticleTitle] = useState('');
 
   const handleGenerate = async () => {
     if (!releaseNotes.trim()) {
@@ -17,6 +18,7 @@ export default function Home() {
     setLoading(true);
     setError('');
     setGeneratedArticle('');
+    setArticleTitle('');
 
     try {
       const response = await fetch('/api/generate', {
@@ -31,6 +33,7 @@ export default function Home() {
 
       const data = await response.json();
       setGeneratedArticle(data.article);
+      setArticleTitle(data.title || 'Help Article');
     } catch (err) {
       setError('Error generating article. Please try again.');
       console.error(err);
@@ -39,9 +42,107 @@ export default function Home() {
     }
   };
 
+  const downloadFile = (content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportMarkdown = () => {
+    const markdown = `# ${articleTitle}\n\n${generatedArticle}`;
+    downloadFile(markdown, `${articleTitle.toLowerCase().replace(/\s+/g, '-')}.md`, 'text/markdown');
+  };
+
+  const exportXML = () => {
+    // Basic Paligo-compatible DITA XML structure
+    const topicId = articleTitle.toLowerCase().replace(/\s+/g, '-');
+    const sections = generatedArticle.split('\n\n').filter(s => s.trim());
+    
+    let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="${topicId}">
+  <title>${escapeXml(articleTitle)}</title>
+  <shortdesc>Generated from Solibri release notes</shortdesc>
+  <body>
+`;
+
+    sections.forEach((section, index) => {
+      const lines = section.split('\n');
+      const title = lines[0];
+      
+      xmlContent += `    <section id="section-${index + 1}">
+      <title>${escapeXml(title)}</title>
+`;
+
+      lines.slice(1).forEach(line => {
+        if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
+          xmlContent += `      <ul><li>${escapeXml(line.trim().substring(1).trim())}</li></ul>\n`;
+        } else if (line.trim()) {
+          xmlContent += `      <p>${escapeXml(line.trim())}</p>\n`;
+        }
+      });
+
+      xmlContent += `    </section>\n`;
+    });
+
+    xmlContent += `  </body>
+</topic>`;
+
+    downloadFile(xmlContent, `${topicId}.xml`, 'application/xml');
+  };
+
+  const exportHTML = () => {
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(articleTitle)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; line-height: 1.6; color: #333; }
+    h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+    h2 { color: #34495e; margin-top: 30px; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    ul, ol { margin: 15px 0; }
+    li { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(articleTitle)}</h1>
+  <div>${generatedArticle.replace(/\n/g, '<br>')}</div>
+</body>
+</html>`;
+    downloadFile(htmlContent, `${articleTitle.toLowerCase().replace(/\s+/g, '-')}.html`, 'text/html');
+  };
+
+  const escapeXml = (str: string) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  const escapeHtml = (str: string) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  };
+
   const handleClearAll = () => {
     setReleaseNotes('');
     setGeneratedArticle('');
+    setArticleTitle('');
     setError('');
   };
 
@@ -106,21 +207,43 @@ export default function Home() {
 
             {generatedArticle ? (
               <div className="space-y-4">
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 max-h-96 overflow-y-auto prose prose-sm">
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
+                  <h3 className="font-bold text-lg mb-3">{articleTitle}</h3>
                   <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
                     {generatedArticle}
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(generatedArticle);
-                    alert('Copied to clipboard!');
-                  }}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200"
-                >
-                  Copy to Clipboard
-                </button>
+                {/* Export Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedArticle);
+                      alert('Copied to clipboard!');
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                  >
+                    📋 Copy
+                  </button>
+                  <button
+                    onClick={exportMarkdown}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                  >
+                    📄 Markdown
+                  </button>
+                  <button
+                    onClick={exportXML}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                  >
+                    ⚙️ Paligo XML
+                  </button>
+                  <button
+                    onClick={exportHTML}
+                    className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded transition duration-200"
+                  >
+                    🌐 HTML
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">

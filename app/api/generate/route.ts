@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call OpenAI API
+    // Call OpenAI API with improved prompt
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -34,21 +34,23 @@ export async function POST(request: NextRequest) {
             content: `You are a professional technical writer for Solibri, a BIM (Building Information Modeling) software. 
 Your task is to convert release notes into clear, well-structured help center articles.
 
-Format your response as a help article with:
-1. A clear title
-2. A brief overview (1-2 sentences)
-3. Key features or changes (bullet points)
-4. Step-by-step instructions (if applicable)
-5. Tips or best practices
-6. Prerequisites (if applicable)
+Format your response as follows:
+1. Start with a CLEAR TITLE that describes the feature/improvement
+2. Brief overview (1-2 sentences)
+3. Key Features or Changes (bullet points with descriptions)
+4. Step-by-Step Instructions (if applicable - number them)
+5. Tips or Best Practices (bullet points)
+6. Prerequisites (if applicable - bullet points)
 
-Write for both beginners and advanced users. Use clear, concise language. Include technical details where relevant but keep explanations accessible.`,
+Write for both beginners and advanced users. Use clear, concise language. Include technical details where relevant.
+Keep paragraphs short and scannable.
+Use bullet points liberally for readability.`,
             role: 'user',
-            content: `Please convert these Solibri release notes into a professional help center article:\n\n${releaseNotes}`,
+            content: `Please convert these Solibri release notes into a professional help center article. Format it clearly with sections and bullet points:\n\n${releaseNotes}`,
           },
         ],
         temperature: 0.7,
-        max_tokens: 1500,
+        max_tokens: 2000,
       }),
     });
 
@@ -64,7 +66,21 @@ Write for both beginners and advanced users. Use clear, concise language. Includ
     const data = await response.json();
     const article = data.choices[0].message.content;
 
-    return NextResponse.json({ article });
+    // Extract title from article (first line)
+    const lines = article.split('\n');
+    let title = 'Help Article';
+    let content = article;
+
+    // Try to extract title
+    if (lines[0].startsWith('#')) {
+      title = lines[0].replace(/^#+\s*/, '').trim();
+      content = lines.slice(1).join('\n').trim();
+    }
+
+    return NextResponse.json({ 
+      article: content,
+      title: title
+    });
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json(
