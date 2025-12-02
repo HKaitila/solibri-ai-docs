@@ -324,7 +324,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="mt-12 text-center text-gray-600 text-sm">
-          <p>University Project | Solibri AI Documentation Assistant</p>
+          <p>HAMK AI Project | Solibri AI Documentation Assistant</p>
         </div>
       </div>
     </div>
