@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
+                messages: [
           {
             role: 'system',
             content: `You are a professional technical writer for Solibri, a BIM (Building Information Modeling) software. 
@@ -45,10 +45,13 @@ Format your response as follows:
 Write for both beginners and advanced users. Use clear, concise language. Include technical details where relevant.
 Keep paragraphs short and scannable.
 Use bullet points liberally for readability.`,
+          },
+          {
             role: 'user',
             content: `Please convert these Solibri release notes into a professional help center article. Format it clearly with sections and bullet points:\n\n${releaseNotes}`,
           },
         ],
+
         temperature: 0.7,
         max_tokens: 2000,
       }),
