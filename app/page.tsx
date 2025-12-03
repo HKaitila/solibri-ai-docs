@@ -2,11 +2,16 @@
 
 import { useState } from 'react';
 
+type InputMode = 'text' | 'url' | 'update';
+
 export default function Home() {
-  const [inputMode, setInputMode] = useState<'text' | 'url'>('text');
+  const [inputMode, setInputMode] = useState<InputMode>('text');
   const [releaseNotesText, setReleaseNotesText] = useState('');
   const [releaseNotesUrl, setReleaseNotesUrl] = useState('');
+  const [existingArticleText, setExistingArticleText] = useState('');
+  const [existingArticleUrl, setExistingArticleUrl] = useState('');
   const [generatedArticle, setGeneratedArticle] = useState('');
+  const [updateAnalysis, setUpdateAnalysis] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [articleTitle, setArticleTitle] = useState('');
@@ -20,10 +25,20 @@ export default function Home() {
         setError('Please paste release notes first.');
         return;
       }
-    } else {
+    } else if (inputMode === 'url') {
       releaseNotes = releaseNotesUrl.trim();
       if (!releaseNotes) {
         setError('Please paste a URL first.');
+        return;
+      }
+    } else if (inputMode === 'update') {
+      releaseNotes = releaseNotesText.trim();
+      if (!releaseNotes) {
+        setError('Please paste release notes first.');
+        return;
+      }
+      if (!existingArticleText.trim() && !existingArticleUrl.trim()) {
+        setError('Please provide existing article (paste text or URL).');
         return;
       }
     }
@@ -31,26 +46,51 @@ export default function Home() {
     setLoading(true);
     setError('');
     setGeneratedArticle('');
+    setUpdateAnalysis('');
     setArticleTitle('');
 
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          releaseNotes,
-          isUrl: inputMode === 'url'
-        }),
-      });
+      if (inputMode === 'update') {
+        // Use update-article API
+        const response = await fetch('/api/update-article', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            releaseNotes,
+            existingArticle: existingArticleText,
+            articleUrl: existingArticleUrl
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate article');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to analyze article');
+        }
+
+        const data = await response.json();
+        setUpdateAnalysis(data.analysis);
+        setGeneratedArticle(data.updatedArticle || '');
+        setArticleTitle('Updated Article');
+      } else {
+        // Use existing generate API
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            releaseNotes,
+            isUrl: inputMode === 'url'
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate article');
+        }
+
+        const data = await response.json();
+        setGeneratedArticle(data.article);
+        setArticleTitle(data.title || 'Help Article');
       }
-
-      const data = await response.json();
-      setGeneratedArticle(data.article);
-      setArticleTitle(data.title || 'Help Article');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error generating article. Please try again.');
       console.error(err);
@@ -72,13 +112,15 @@ export default function Home() {
   };
 
   const exportMarkdown = () => {
-    const markdown = `# ${articleTitle}\n\n${generatedArticle}`;
+    const content = inputMode === 'update' ? updateAnalysis : generatedArticle;
+    const markdown = `# ${articleTitle}\n\n${content}`;
     downloadFile(markdown, `${articleTitle.toLowerCase().replace(/\s+/g, '-')}.md`, 'text/markdown');
   };
 
   const exportXML = () => {
+    const content = inputMode === 'update' ? generatedArticle : generatedArticle;
     const topicId = articleTitle.toLowerCase().replace(/\s+/g, '-');
-    const sections = generatedArticle.split('\n\n').filter(s => s.trim());
+    const sections = content.split('\n\n').filter(s => s.trim());
     
     let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
@@ -114,6 +156,7 @@ export default function Home() {
   };
 
   const exportHTML = () => {
+    const content = inputMode === 'update' ? updateAnalysis : generatedArticle;
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -121,18 +164,21 @@ export default function Home() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(articleTitle)}</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; line-height: 1.6; color: #333; }
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; line-height: 1.6; color: #333; padding: 20px; }
     h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
     h2 { color: #34495e; margin-top: 30px; }
     code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
     pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
     ul, ol { margin: 15px 0; }
     li { margin: 8px 0; }
+    .keep { background: #d4edda; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    .update { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    .new { background: #cce5ff; padding: 10px; border-radius: 5px; margin: 10px 0; }
   </style>
 </head>
 <body>
   <h1>${escapeHtml(articleTitle)}</h1>
-  <div>${generatedArticle.replace(/\n/g, '<br>')}</div>
+  <div>${content.replace(/\n/g, '<br>')}</div>
 </body>
 </html>`;
     downloadFile(htmlContent, `${articleTitle.toLowerCase().replace(/\s+/g, '-')}.html`, 'text/html');
@@ -158,14 +204,17 @@ export default function Home() {
   const handleClearAll = () => {
     setReleaseNotesText('');
     setReleaseNotesUrl('');
+    setExistingArticleText('');
+    setExistingArticleUrl('');
     setGeneratedArticle('');
+    setUpdateAnalysis('');
     setArticleTitle('');
     setError('');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-5xl font-bold text-gray-900 mb-2">
@@ -181,17 +230,17 @@ export default function Home() {
           {/* Left: Input */}
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Release Notes Input
+              Input
             </h2>
 
             {/* Input Mode Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-gray-300">
+            <div className="flex gap-1 mb-6 border-b border-gray-300">
               <button
                 onClick={() => {
                   setInputMode('text');
                   setError('');
                 }}
-                className={`pb-2 px-4 font-semibold transition ${
+                className={`pb-2 px-3 font-semibold transition text-sm ${
                   inputMode === 'text'
                     ? 'border-b-2 border-indigo-600 text-indigo-600'
                     : 'text-gray-600 hover:text-gray-900'
@@ -204,13 +253,26 @@ export default function Home() {
                   setInputMode('url');
                   setError('');
                 }}
-                className={`pb-2 px-4 font-semibold transition ${
+                className={`pb-2 px-3 font-semibold transition text-sm ${
                   inputMode === 'url'
                     ? 'border-b-2 border-indigo-600 text-indigo-600'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 🔗 From URL
+              </button>
+              <button
+                onClick={() => {
+                  setInputMode('update');
+                  setError('');
+                }}
+                className={`pb-2 px-3 font-semibold transition text-sm ${
+                  inputMode === 'update'
+                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                ⚡ Update Article
               </button>
             </div>
 
@@ -240,6 +302,50 @@ export default function Home() {
               </div>
             )}
 
+            {/* Update Article Input */}
+            {inputMode === 'update' && (
+              <div className="space-y-4">
+                {/* Release Notes */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    📋 Release Notes (what changed)
+                  </label>
+                  <textarea
+                    value={releaseNotesText}
+                    onChange={(e) => setReleaseNotesText(e.target.value)}
+                    placeholder="Paste the new release notes here..."
+                    className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none font-mono text-sm"
+                  />
+                </div>
+
+                {/* Existing Article */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    📄 Existing Help Article (to update)
+                  </label>
+                  
+                  {/* Article URL */}
+                  <input
+                    type="url"
+                    value={existingArticleUrl}
+                    onChange={(e) => setExistingArticleUrl(e.target.value)}
+                    placeholder="e.g., https://help.solibri.com/hc/en-us/articles/..."
+                    className="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 font-mono text-sm mb-2"
+                  />
+                  
+                  <p className="text-xs text-gray-500 mb-2 text-center">— OR paste article text below —</p>
+                  
+                  {/* Article Text */}
+                  <textarea
+                    value={existingArticleText}
+                    onChange={(e) => setExistingArticleText(e.target.value)}
+                    placeholder="Paste the existing help article content here..."
+                    className="w-full h-24 p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none font-mono text-sm"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Buttons */}
             <div className="flex gap-3 mt-6">
               <button
@@ -247,7 +353,10 @@ export default function Home() {
                 disabled={loading}
                 className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
               >
-                {loading ? 'Generating...' : 'Generate Article'}
+                {loading 
+                  ? (inputMode === 'update' ? 'Analyzing...' : 'Generating...') 
+                  : (inputMode === 'update' ? 'Analyze & Update' : 'Generate Article')
+                }
               </button>
 
               <button
@@ -269,23 +378,32 @@ export default function Home() {
           {/* Right: Output */}
           <div className="bg-white rounded-lg shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Generated Help Article
+              {inputMode === 'update' ? 'Update Analysis' : 'Generated Help Article'}
             </h2>
 
-            {generatedArticle ? (
+            {(generatedArticle || updateAnalysis) ? (
               <div className="space-y-4">
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
-                  <h3 className="font-bold text-lg mb-3">{articleTitle}</h3>
-                  <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
-                    {generatedArticle}
-                  </div>
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 max-h-[500px] overflow-y-auto">
+                  {inputMode === 'update' && updateAnalysis ? (
+                    <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
+                      {updateAnalysis}
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="font-bold text-lg mb-3">{articleTitle}</h3>
+                      <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
+                        {generatedArticle}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Export Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(generatedArticle);
+                      const content = inputMode === 'update' ? updateAnalysis : generatedArticle;
+                      navigator.clipboard.writeText(content);
                       alert('Copied to clipboard!');
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
@@ -314,8 +432,11 @@ export default function Home() {
               </div>
             ) : (
               <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
-                <p className="text-gray-400 text-center">
-                  Generated article will appear here...
+                <p className="text-gray-400 text-center px-4">
+                  {inputMode === 'update' 
+                    ? 'Update analysis will appear here...\n\nCompare release notes against existing articles to see what needs updating.'
+                    : 'Generated article will appear here...'
+                  }
                 </p>
               </div>
             )}
@@ -324,7 +445,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="mt-12 text-center text-gray-600 text-sm">
-          <p>HAMK AI Project | Solibri AI Documentation Assistant</p>
+          <p>University Project | Solibri AI Documentation Assistant</p>
         </div>
       </div>
     </div>
