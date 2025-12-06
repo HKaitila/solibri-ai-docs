@@ -1,0 +1,492 @@
+{
+  "topics": [
+    {
+      "id": "welcome-to-solibri",
+      "title": "Welcome to Solibri",
+      "category": "Getting Started",
+      "subcategory": "Welcome to Solibri",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052582-Welcome-to-Solibri",
+      "keywords": ["getting started", "solibri", "introduction", "overview"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "completing-user-account-registration",
+      "title": "Completing Your User Account Registration",
+      "category": "Getting Started",
+      "subcategory": "Welcome to Solibri",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052602-Completing-Your-User-Account-Registration",
+      "keywords": ["registration", "account", "user", "setup"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "installing-solibri",
+      "title": "Installing Solibri Office or Solibri Site",
+      "category": "Getting Started",
+      "subcategory": "Welcome to Solibri",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500005246021-Installing-Solibri-Office-or-Solibri-Site",
+      "keywords": ["installation", "install", "setup", "solibri office", "solibri site"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "proxy-server-settings",
+      "title": "Proxy Server Settings",
+      "category": "Getting Started",
+      "subcategory": "Welcome to Solibri",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052622-Proxy-Server-Settings",
+      "keywords": ["proxy", "server", "network", "settings"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "firewall-settings",
+      "title": "Firewall Settings",
+      "category": "Getting Started",
+      "subcategory": "Welcome to Solibri",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500005246021-Firewall-Settings",
+      "keywords": ["firewall", "security", "network", "ports"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "how-to-update-solibri",
+      "title": "How can I update my Solibri to the latest version?",
+      "category": "Getting Started",
+      "subcategory": "Product Help & Advice",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052642-How-can-I-update-my-Solibri-to-the-latest-version",
+      "keywords": ["update", "upgrade", "version", "latest"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "reset-password",
+      "title": "How Do I Reset My Solibri Center Password?",
+      "category": "Getting Started",
+      "subcategory": "Licensing Troubleshooting",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052662-How-Do-I-Reset-My-Solibri-Center-Password",
+      "keywords": ["password", "reset", "login", "authentication"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "supported-file-formats",
+      "title": "Supported File Formats",
+      "category": "Using Solibri",
+      "subcategory": "Managing Models",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751182-Supported-File-Formats",
+      "keywords": ["file formats", "ifc", "model", "import"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "ifc-standards",
+      "title": "IFC Standards Supported by Solibri",
+      "category": "Using Solibri",
+      "subcategory": "Managing Models",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751202-IFC-Standards-Supported-by-Solibri",
+      "keywords": ["ifc", "standards", "compatibility"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "opening-a-model",
+      "title": "Opening a Model",
+      "category": "Using Solibri",
+      "subcategory": "Managing Models",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751222-Opening-a-Model",
+      "keywords": ["opening", "model", "file", "project"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "adding-models",
+      "title": "Adding Models",
+      "category": "Using Solibri",
+      "subcategory": "Managing Models",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751242-Adding-Models",
+      "keywords": ["adding", "models", "import", "multi-model"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "updating-models",
+      "title": "Updating Models",
+      "category": "Using Solibri",
+      "subcategory": "Managing Models",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052882-Updating-Models",
+      "keywords": ["updating", "models", "refresh", "reload"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "model-hierarchies",
+      "title": "Model Hierarchies in the Model Tree View",
+      "category": "Using Solibri",
+      "subcategory": "Managing Models",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751262-Model-Hierarchies-in-the-Model-Tree-View",
+      "keywords": ["hierarchy", "tree view", "model structure"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "understanding-checking",
+      "title": "Understanding Checking",
+      "category": "Using Solibri",
+      "subcategory": "Checking",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052902-Understanding-Checking",
+      "keywords": ["checking", "rules", "quality", "validation"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "selecting-role-and-rulesets",
+      "title": "Selecting a Role and Rulesets for Checking",
+      "category": "Using Solibri",
+      "subcategory": "Checking",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052922-Selecting-a-Role-and-Rulesets-for-Checking",
+      "keywords": ["checking", "role", "rulesets", "configuration"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "checking-model",
+      "title": "Checking a Model or Selected Components",
+      "category": "Using Solibri",
+      "subcategory": "Checking",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052942-Checking-a-Model-or-Selected-Components",
+      "keywords": ["checking", "validation", "run checks", "components"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "viewing-checking-results",
+      "title": "Viewing Checking Results",
+      "category": "Using Solibri",
+      "subcategory": "Checking",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052962-Viewing-Checking-Results",
+      "keywords": ["results", "issues", "report", "findings"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "filtering-checking-results",
+      "title": "Filtering Checking Results",
+      "category": "Using Solibri",
+      "subcategory": "Checking",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052982-Filtering-Checking-Results",
+      "keywords": ["filter", "results", "search", "issues"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "measurement-tool",
+      "title": "The Measurement Tool",
+      "category": "Using Solibri",
+      "subcategory": "Visualisation",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052902-The-Measurement-Tool",
+      "keywords": ["measurement", "tool", "distance", "dimension"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "markup-tool",
+      "title": "The Markup Tool",
+      "category": "Using Solibri",
+      "subcategory": "Visualisation",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052912-The-Markup-Tool",
+      "keywords": ["markup", "annotation", "tool", "drawing"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "sectioning-tool",
+      "title": "The Sectioning Tool",
+      "category": "Using Solibri",
+      "subcategory": "Visualisation",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052922-The-Sectioning-Tool",
+      "keywords": ["sectioning", "section", "cross-section", "view"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "presentations",
+      "title": "Presentations in Solibri",
+      "category": "Using Solibri",
+      "subcategory": "Communication and Presentations",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052932-Presentations-in-Solibri",
+      "keywords": ["presentations", "reporting", "slides", "communication"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "creating-presentation-from-results",
+      "title": "Creating a Presentation from Checking Results",
+      "category": "Using Solibri",
+      "subcategory": "Communication and Presentations",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052942-Creating-a-Presentation-from-Checking-Results",
+      "keywords": ["presentation", "checking results", "slides"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "bcf-live-connector",
+      "title": "About BCF Live Connector",
+      "category": "Using Solibri",
+      "subcategory": "Collaboration with BCF",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052952-About-BCF-Live-Connector",
+      "keywords": ["bcf", "collaboration", "connector", "issues"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "synchronising-issues-bcf",
+      "title": "Synchronising Issues with BCF Live Connector",
+      "category": "Using Solibri",
+      "subcategory": "Collaboration with BCF",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052962-Synchronising-Issues-with-BCF-Live-Connector",
+      "keywords": ["bcf", "sync", "synchronize", "issues"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "general-settings",
+      "title": "General Settings",
+      "category": "Using Solibri",
+      "subcategory": "Settings",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052972-General-Settings",
+      "keywords": ["settings", "preferences", "configuration"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "units-settings",
+      "title": "Units Settings",
+      "category": "Using Solibri",
+      "subcategory": "Settings",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052982-Units-Settings",
+      "keywords": ["units", "measurement", "metric", "imperial", "settings"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "understanding-rules",
+      "title": "Understanding Rules",
+      "category": "Solibri Rules",
+      "subcategory": "Rules Basics",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751182-Understanding-Rules",
+      "keywords": ["rules", "checking", "rulesets", "logic", "conditions"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["power-user", "admin"]
+    },
+    {
+      "id": "creating-rules",
+      "title": "Creating Rules",
+      "category": "Solibri Rules",
+      "subcategory": "Rules Basics",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751202-Creating-Rules",
+      "keywords": ["create", "rules", "custom", "new rule"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["power-user", "admin"]
+    },
+    {
+      "id": "rule-conditions",
+      "title": "Rule Conditions",
+      "category": "Solibri Rules",
+      "subcategory": "Rules Basics",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751222-Rule-Conditions",
+      "keywords": ["conditions", "rules", "logic", "parameters"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["power-user", "admin"]
+    },
+    {
+      "id": "rule-actions",
+      "title": "Rule Actions",
+      "category": "Solibri Rules",
+      "subcategory": "Rules Basics",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751242-Rule-Actions",
+      "keywords": ["actions", "rules", "results", "reporting"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["power-user", "admin"]
+    },
+    {
+      "id": "custom-rulesets",
+      "title": "Custom Rulesets",
+      "category": "Solibri Rules",
+      "subcategory": "Working with Rulesets",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751262-Custom-Rulesets",
+      "keywords": ["rulesets", "custom", "rules", "collection"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["power-user", "admin"]
+    },
+    {
+      "id": "editing-rulesets",
+      "title": "Editing Rulesets",
+      "category": "Solibri Rules",
+      "subcategory": "Working with Rulesets",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751282-Editing-Rulesets",
+      "keywords": ["edit", "rulesets", "modify", "rules"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["power-user", "admin"]
+    },
+    {
+      "id": "predefined-rules",
+      "title": "Pre-defined Rules",
+      "category": "Solibri Rules",
+      "subcategory": "Pre-defined Rules",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004751302-Pre-defined-Rules",
+      "keywords": ["predefined", "rules", "built-in", "default"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "admin-overview",
+      "title": "Administration Overview",
+      "category": "Administration",
+      "subcategory": "Getting Started",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052002-Administration-Overview",
+      "keywords": ["administration", "admin", "settings", "management"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "user-management",
+      "title": "User Management",
+      "category": "Administration",
+      "subcategory": "Users & Permissions",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052022-User-Management",
+      "keywords": ["users", "management", "permissions", "roles"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "permissions-and-roles",
+      "title": "Permissions and Roles",
+      "category": "Administration",
+      "subcategory": "Users & Permissions",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052042-Permissions-and-Roles",
+      "keywords": ["permissions", "roles", "access control", "security"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "licensing-management",
+      "title": "Licensing Management",
+      "category": "Administration",
+      "subcategory": "Licensing",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052062-Licensing-Management",
+      "keywords": ["licensing", "license", "activation", "keys"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "solibri-center",
+      "title": "Solibri Center",
+      "category": "Administration",
+      "subcategory": "Licensing",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052082-Solibri-Center",
+      "keywords": ["solibri center", "licensing", "platform", "management"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "system-requirements",
+      "title": "System Requirements",
+      "category": "Administration",
+      "subcategory": "System Setup",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052102-System-Requirements",
+      "keywords": ["system", "requirements", "hardware", "software"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "subscription-overview",
+      "title": "Subscription Overview",
+      "category": "Subscription & Billing",
+      "subcategory": "Getting Started",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052122-Subscription-Overview",
+      "keywords": ["subscription", "billing", "plans", "pricing"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "managing-subscription",
+      "title": "Managing Your Subscription",
+      "category": "Subscription & Billing",
+      "subcategory": "Subscription Management",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052142-Managing-Your-Subscription",
+      "keywords": ["subscription", "manage", "billing", "account"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "payment-methods",
+      "title": "Payment Methods",
+      "category": "Subscription & Billing",
+      "subcategory": "Billing",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052162-Payment-Methods",
+      "keywords": ["payment", "billing", "credit card", "invoice"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "invoices-and-receipts",
+      "title": "Invoices and Receipts",
+      "category": "Subscription & Billing",
+      "subcategory": "Billing",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052182-Invoices-and-Receipts",
+      "keywords": ["invoices", "receipts", "billing", "history"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "tutorial-getting-started",
+      "title": "Getting Started Tutorial",
+      "category": "Tutorials",
+      "subcategory": "Beginner Tutorials",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052202-Getting-Started-Tutorial",
+      "keywords": ["tutorial", "getting started", "beginner", "guide"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "tutorial-checking",
+      "title": "Checking Tutorial",
+      "category": "Tutorials",
+      "subcategory": "Beginner Tutorials",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052222-Checking-Tutorial",
+      "keywords": ["tutorial", "checking", "validation", "guide"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "tutorial-presentations",
+      "title": "Presentations Tutorial",
+      "category": "Tutorials",
+      "subcategory": "Intermediate Tutorials",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052242-Presentations-Tutorial",
+      "keywords": ["tutorial", "presentations", "reporting", "guide"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    },
+    {
+      "id": "tutorial-collaboration",
+      "title": "Collaboration Tutorial",
+      "category": "Tutorials",
+      "subcategory": "Intermediate Tutorials",
+      "zendesk_url": "https://help.solibri.com/hc/en-us/articles/1500004052262-Collaboration-Tutorial",
+      "keywords": ["tutorial", "collaboration", "bcf", "guide"],
+      "versions": ["2024.3", "2024.4"],
+      "roles": ["all"]
+    }
+  ],
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2025-12-04T19:09:00",
+    "total_articles": 48,
+    "categories": 6,
+    "data_source": "Solibri Help Center",
+    "note": "This is a curated sample of 48 key articles. The full Help Center contains 200+ articles. You can add more articles to this file as needed."
+  }
+}
