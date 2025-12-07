@@ -1,73 +1,75 @@
-import { EmbeddingProvider, Article, ScoredArticle } from "../types";
+import OpenAI from "openai";
+import type { Article, ScoredArticle } from "../types";
 
-export class OpenAIProvider implements EmbeddingProvider {
-  private apiKey: string;
-  private model = "text-embedding-3-small";
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-  constructor() {
-    this.apiKey = process.env.OPENAI_API_KEY || "";
-    if (!this.apiKey) {
-      throw new Error("OPENAI_API_KEY not set");
-    }
-  }
+const EMBEDDING_MODEL = "text-embedding-3-small";
 
-  async embed(text: string): Promise<number[]> {
-    const cleanText = text.substring(0, 32000);
+// Limits to avoid exceeding the model context window
+const MAX_ARTICLES = 50;
+const MAX_CHARS_PER_ARTICLE = 4000;
 
-    const response = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        input: cleanText,
-        model: this.model,
-      }),
+export class OpenAIProvider {
+  async embed(texts: string[]): Promise<number[][]> {
+    const response = await client.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: texts,
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI embedding error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data.embedding;
+    return response.data.map((item) => item.embedding);
   }
 
-  async search(
-    query: string,
-    articles: Article[]
-  ): Promise<ScoredArticle[]> {
-    if (!articles || articles.length === 0) {
-      return [];
-    }
+  async search(query: string, articles: Article[]): Promise<ScoredArticle[]> {
+    if (!articles.length) return [];
 
-    // TEMPORARY: Return top 5 articles by relevance (without calling OpenAI)
-    // Just do a simple text match for now
-    const queryLower = query.toLowerCase();
-    const scored = articles.map(article => ({
-      ...article,
-      relevanceScore: 
-        (article.title.toLowerCase().includes(queryLower) ? 0.8 : 0) +
-        (article.content.toLowerCase().includes(queryLower) ? 0.5 : 0)
+    // 1) Limit number of articles and truncate long content
+    const limitedArticles = articles.slice(0, MAX_ARTICLES);
+
+    const inputs = [
+      query,
+      ...limitedArticles.map((a) => {
+        const content =
+          a.content.length > MAX_CHARS_PER_ARTICLE
+            ? a.content.slice(0, MAX_CHARS_PER_ARTICLE)
+            : a.content;
+
+        return `${a.title}\n\n${content}`;
+      }),
+    ];
+
+    const [queryEmbedding, ...articleEmbeddings] = await this.embed(inputs);
+
+    // 2) Compute cosine similarity
+    const scores = articleEmbeddings.map((embedding, index) => ({
+      article: limitedArticles[index],
+      score: cosineSimilarity(queryEmbedding, embedding),
     }));
 
-    return scored
-      .filter(a => a.relevanceScore > 0)
-      .sort((a, b) => b.relevanceScore - a.score)
-      .slice(0, 5);
+    // 3) Sort and return top matches
+    return scores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map((s) => ({
+        ...s.article,
+        relevanceScore: s.score,
+      }));
+  }
+}
+
+// Simple cosine similarity
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
   }
 
-
-  private cosineSimilarity(a: number[], b: number[]): number {
-    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-    const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-    const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-
-    if (magnitudeA === 0 || magnitudeB === 0) {
-      return 0;
-    }
-
-    return dotProduct / (magnitudeA * magnitudeB);
-  }
+  if (!na || !nb) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }

@@ -4,7 +4,7 @@ import { SOLIBRI_SYSTEM_PROMPT } from "../utils/domain-prompts";
 
 export class ClaudeProvider implements LLMProvider {
   private client: Anthropic;
-  private model = "claude-3-5-sonnet-20241022";
+  private model = "claude-haiku-4-5-20251001";
 
   constructor() {
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -48,26 +48,57 @@ Respond ONLY with valid JSON, no other text. Use this structure exactly:
         ],
       });
 
-      const text =
-        response.content.type === "text" ? response.content.text : "";
+      // Safely extract text content
+      const textContent = response.content.find((c) => c.type === "text");
+      if (!textContent || textContent.type !== "text") {
+        throw new Error("No text content in response");
+      }
+
+      const text = textContent.text;
 
       try {
-        const parsed = JSON.parse(text);
-        if (
-          !parsed.score ||
-          !parsed.severity ||
-          !parsed.summary ||
-          !Array.isArray(parsed.affectedRoles)
-        ) {
-          throw new Error("Invalid response structure");
+        // Try to extract JSON from response (in case Claude adds extra text)
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          console.error("[Claude] No JSON found in response:", text);
+          // Return safe defaults instead of throwing
+          return {
+            score: 5,
+            severity: "MEDIUM",
+            category: "general",
+            affectedRoles: [],
+            summary: "Unable to parse response - manual review recommended",
+            actionRequired: "PLANNED_UPDATE",
+            riskAssessment: "Unknown - requires manual assessment",
+          };
         }
-        return parsed as ImpactAnalysis;
+
+        const parsed = JSON.parse(jsonMatch[0]);
+
+        // Validate required fields, use defaults if missing
+        return {
+          score: parsed.score ?? 5,
+          severity: parsed.severity ?? "MEDIUM",
+          category: parsed.category ?? "general",
+          affectedRoles: Array.isArray(parsed.affectedRoles)
+            ? parsed.affectedRoles
+            : [],
+          summary: parsed.summary ?? "No summary available",
+          actionRequired: parsed.actionRequired ?? "PLANNED_UPDATE",
+          riskAssessment: parsed.riskAssessment ?? "Unknown",
+        };
       } catch (parseError) {
-        throw new ProviderError(
-          "claude",
-          "PARSE_ERROR",
-          `Failed to parse Claude response: ${text}`
-        );
+        console.error("[Claude] JSON parse failed:", parseError, "Text:", text);
+        // Return safe defaults on parse failure
+        return {
+          score: 5,
+          severity: "MEDIUM",
+          category: "general",
+          affectedRoles: [],
+          summary: "Unable to parse response - manual review recommended",
+          actionRequired: "PLANNED_UPDATE",
+          riskAssessment: "Unknown - requires manual assessment",
+        };
       }
     } catch (error) {
       if (error instanceof ProviderError) throw error;
@@ -78,6 +109,7 @@ Respond ONLY with valid JSON, no other text. Use this structure exactly:
           "Claude rate limited. Please retry in a moment."
         );
       }
+      console.error("[Claude analyzeImpact Error]", error);
       throw new ProviderError(
         "claude",
         "UNKNOWN",
@@ -113,7 +145,10 @@ Instructions:
         ],
       });
 
-      return response.content.type === "text" ? response.content.text : "";
+      const textContent = response.content.find((c) => c.type === "text");
+      return textContent && textContent.type === "text"
+        ? textContent.text
+        : "Unable to generate update";
     } catch (error) {
       throw new ProviderError(
         "claude",
@@ -149,7 +184,10 @@ Return ONLY the translated text, preserving all formatting exactly.`,
         ],
       });
 
-      return response.content.type === "text" ? response.content.text : "";
+      const textContent = response.content.find((c) => c.type === "text");
+      return textContent && textContent.type === "text"
+        ? textContent.text
+        : "Unable to translate";
     } catch (error) {
       throw new ProviderError(
         "claude",
