@@ -1,5 +1,6 @@
-import { EmbeddingProvider } from "../types";
-import { OpenAIProvider } from "./openai";
+import { EmbeddingProvider } from "./types";
+import { OpenAIProvider } from "./embedding/openai";
+
 
 let cachedProvider: EmbeddingProvider | null = null;
 

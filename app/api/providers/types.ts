@@ -18,7 +18,7 @@ export interface LLMProvider {
 
 // Embedding types
 export interface EmbeddingProvider {
-  embed(text: string): Promise<number[]>;
+  embed(texts: string[]): Promise<number[][]>;
   search(query: string, articles: Article[]): Promise<ScoredArticle[]>;
 }
 
