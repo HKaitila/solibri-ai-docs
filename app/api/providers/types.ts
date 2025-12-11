@@ -1,6 +1,16 @@
+// app/api/providers/types.ts
+
+// Release Notes Extraction
+export interface ReleaseNotesExtraction {
+  features: string[];
+  bugFixes: string[];
+  deprecations: string[];
+  breakingChanges: string[];
+}
+
 // Core types for impact analysis
 export interface ImpactAnalysis {
-  score: number;                    // 1-10
+  score: number; // 1-10
   severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
   category: string;
   affectedRoles: string[];
@@ -14,6 +24,7 @@ export interface LLMProvider {
   analyzeImpact(notes: string, article: string): Promise<ImpactAnalysis>;
   generateUpdate(notes: string, article: string): Promise<string>;
   translateText(text: string, targetLanguage: string): Promise<string>;
+  extractReleaseNotes(notes: string): Promise<ReleaseNotesExtraction>;
 }
 
 // Embedding types

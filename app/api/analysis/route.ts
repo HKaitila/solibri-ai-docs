@@ -1,3 +1,4 @@
+// app/api/analysis/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getLLMProvider } from "../providers/llm/factory";
 import { getEmbeddingProvider } from "../providers/embedding/factory";
@@ -18,11 +19,15 @@ export async function POST(request: NextRequest) {
 
     console.log("[Analysis] Starting analysis of release notes...");
 
+    // Get providers
+    const llm = getLLMProvider();
     const embedding = getEmbeddingProvider();
     const zendeskService = getZendeskService();
 
-    console.log("[Analysis] Searching for relevant articles...");
+    console.log("[Analysis] Extracting features from release notes...");
+    const extraction = await llm.extractReleaseNotes(releaseNotes);
 
+    console.log("[Analysis] Searching for relevant articles...");
     const { articles: allArticles } = await zendeskService.getAllArticles(
       1,
       100
@@ -33,13 +38,6 @@ export async function POST(request: NextRequest) {
     console.log(
       `[Analysis] Found ${suggestedArticles.length} relevant articles`
     );
-
-    const extraction = {
-      features: [] as string[],
-      bugFixes: [] as string[],
-      deprecations: [] as string[],
-      breakingChanges: [] as string[],
-    };
 
     const response: AnalysisResponse = {
       extraction,

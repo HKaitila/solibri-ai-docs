@@ -1,5 +1,11 @@
+// app/api/providers/llm/claude.ts
 import Anthropic from "@anthropic-ai/sdk";
-import { LLMProvider, ImpactAnalysis, ProviderError } from "../types";
+import {
+  LLMProvider,
+  ImpactAnalysis,
+  ProviderError,
+  ReleaseNotesExtraction,
+} from "../types";
 import { SOLIBRI_SYSTEM_PROMPT } from "../utils/domain-prompts";
 
 export class ClaudeProvider implements LLMProvider {
@@ -36,13 +42,13 @@ ${article}
 
 Respond ONLY with valid JSON, no other text. Use this structure exactly:
 {
-  "score": <number 1-10>,
+  "score": <1-10>,
   "severity": "<CRITICAL|HIGH|MEDIUM|LOW>",
-  "category": "<category name>",
-  "affectedRoles": ["<role1>", "<role2>"],
-  "summary": "<one sentence summary>",
-  "actionRequired": "<IMMEDIATE_UPDATE|PLANNED_UPDATE|OPTIONAL>",
-  "riskAssessment": "<risk description>"
+  "category": "<string>",
+  "affectedRoles": ["<role>", "<role>"],
+  "summary": "<string>",
+  "actionRequired": "<string>",
+  "riskAssessment": "<string>"
 }`,
           },
         ],
@@ -55,7 +61,6 @@ Respond ONLY with valid JSON, no other text. Use this structure exactly:
       }
 
       const text = textContent.text;
-
       try {
         // Try to extract JSON from response (in case Claude adds extra text)
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -67,14 +72,14 @@ Respond ONLY with valid JSON, no other text. Use this structure exactly:
             severity: "MEDIUM",
             category: "general",
             affectedRoles: [],
-            summary: "Unable to parse response - manual review recommended",
+            summary:
+              "Unable to parse response - manual review recommended",
             actionRequired: "PLANNED_UPDATE",
             riskAssessment: "Unknown - requires manual assessment",
           };
         }
 
         const parsed = JSON.parse(jsonMatch[0]);
-
         // Validate required fields, use defaults if missing
         return {
           score: parsed.score ?? 5,
@@ -88,14 +93,20 @@ Respond ONLY with valid JSON, no other text. Use this structure exactly:
           riskAssessment: parsed.riskAssessment ?? "Unknown",
         };
       } catch (parseError) {
-        console.error("[Claude] JSON parse failed:", parseError, "Text:", text);
+        console.error(
+          "[Claude] JSON parse failed:",
+          parseError,
+          "Text:",
+          text
+        );
         // Return safe defaults on parse failure
         return {
           score: 5,
           severity: "MEDIUM",
           category: "general",
           affectedRoles: [],
-          summary: "Unable to parse response - manual review recommended",
+          summary:
+            "Unable to parse response - manual review recommended",
           actionRequired: "PLANNED_UPDATE",
           riskAssessment: "Unknown - requires manual assessment",
         };
@@ -158,7 +169,10 @@ Instructions:
     }
   }
 
-  async translateText(text: string, targetLanguage: string): Promise<string> {
+  async translateText(
+    text: string,
+    targetLanguage: string
+  ): Promise<string> {
     try {
       const response = await this.client.messages.create({
         model: this.model,
@@ -194,6 +208,85 @@ Return ONLY the translated text, preserving all formatting exactly.`,
         "TRANSLATION_ERROR",
         error instanceof Error ? error.message : "Failed to translate"
       );
+    }
+  }
+
+  async extractReleaseNotes(
+    notes: string
+  ): Promise<ReleaseNotesExtraction> {
+    try {
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 1024,
+        system: SOLIBRI_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: `Extract and categorize the following release notes into features, bug fixes, deprecations, and breaking changes.
+
+RELEASE NOTES:
+${notes}
+
+Respond ONLY with valid JSON, no markdown code blocks. Use this structure exactly:
+{
+  "features": ["feature 1", "feature 2"],
+  "bugFixes": ["bug 1", "bug 2"],
+  "deprecations": ["deprecated 1"],
+  "breakingChanges": ["breaking change 1"]
+}`,
+          },
+        ],
+      });
+
+      const textContent = response.content.find((c) => c.type === "text");
+      if (!textContent || textContent.type !== "text") {
+        throw new Error("No text content in response");
+      }
+
+      const text = textContent.text;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          console.error(
+            "[Claude] No JSON found in extraction response:",
+            text
+          );
+          return {
+            features: [],
+            bugFixes: [],
+            deprecations: [],
+            breakingChanges: [],
+          };
+        }
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          features: Array.isArray(parsed.features) ? parsed.features : [],
+          bugFixes: Array.isArray(parsed.bugFixes) ? parsed.bugFixes : [],
+          deprecations: Array.isArray(parsed.deprecations)
+            ? parsed.deprecations
+            : [],
+          breakingChanges: Array.isArray(parsed.breakingChanges)
+            ? parsed.breakingChanges
+            : [],
+        };
+      } catch (parseError) {
+        console.error("[Claude] JSON parse failed in extraction:", parseError);
+        return {
+          features: [],
+          bugFixes: [],
+          deprecations: [],
+          breakingChanges: [],
+        };
+      }
+    } catch (error) {
+      console.error("[Claude extractReleaseNotes Error]", error);
+      return {
+        features: [],
+        bugFixes: [],
+        deprecations: [],
+        breakingChanges: [],
+      };
     }
   }
 }
