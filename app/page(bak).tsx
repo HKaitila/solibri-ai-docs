@@ -1,567 +1,356 @@
 'use client';
 
-import { useState } from 'react';
-
-type InputMode = 'text' | 'url' | 'update';
+import { useToast, ToastContainer } from '@/components/ToastContainer';
+import { ReleaseNotesInput } from '@/components/ReleaseNotesInput';
+// ExportMenu will be added in Phase 2 - comment out for now
+// import { ExportMenu } from '@/components/ExportMenu';
+import { useState, useCallback } from 'react';
 
 export default function Home() {
-  const [inputMode, setInputMode] = useState<InputMode>('text');
-  const [releaseNotesText, setReleaseNotesText] = useState('');
-  const [releaseNotesUrl, setReleaseNotesUrl] = useState('');
-  const [existingArticleText, setExistingArticleText] = useState('');
-  const [existingArticleUrl, setExistingArticleUrl] = useState('');
-  const [existingArticleInputMode, setExistingArticleInputMode] = useState<'file' | 'url' | 'text'>('file');
-  const [generatedArticle, setGeneratedArticle] = useState('');
-  const [updateAnalysis, setUpdateAnalysis] = useState('');
+  // ============================================================================
+  // TOAST NOTIFICATIONS HOOK
+  // ============================================================================
+  // Provides showToast() function to display success/error/info messages
+  // Automatically dismisses after 3 seconds
+  const { toasts, showToast, removeToast } = useToast();
+
+  // ============================================================================
+  // STATE MANAGEMENT - RELEASE NOTES INPUT & ANALYSIS
+  // ============================================================================
+  // releaseNotes: Current release notes text (from textarea or file upload)
+  const [releaseNotes, setReleaseNotes] = useState('');
+  
+  // results: API response containing articles to update and improvements
+  // Structure: { articles: [], gaps: [], summary: '' }
+  const [results, setResults] = useState<any>(null);
+  
+  // loading: Shows loading state during API call to /api/compare
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [articleTitle, setArticleTitle] = useState('');
+  
+  // error: Stores error messages if analysis fails
+  const [error, setError] = useState<string | null>(null);
+  
+  // analysisGaps: List of documentation gaps found (topics in release but no articles)
+  const [analysisGaps, setAnalysisGaps] = useState<any[]>([]);
 
-  const handleFileUpload = async (file: File) => {
-    try {
-      const text = await file.text();
-      
-      // If it's HTML, extract text content
-      let content = text;
-      if (file.name.endsWith('.html')) {
-        // Remove script and style tags
-        content = content
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-          // Remove HTML tags
-          .replace(/<[^>]+>/g, ' ')
-          // Clean up whitespace
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
-      
-      setExistingArticleText(content);
-      setError('');
-    } catch (err) {
-      setError('Error reading file: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    }
-  };
+  // ============================================================================
+  // STATE MANAGEMENT - TAB NAVIGATION & ARTICLE CREATION
+  // ============================================================================
+  // selectedTab: Switches between "analyze" (release notes analysis) and "create" (new article generation)
+  const [selectedTab, setSelectedTab] = useState<'analyze' | 'create'>('analyze');
+  
+  // newArticleTopic: User input for the topic of article to generate
+  const [newArticleTopic, setNewArticleTopic] = useState('');
+  
+  // creatingArticle: Shows loading state during article generation via /api/generate-article
+  const [creatingArticle, setCreatingArticle] = useState(false);
 
-  const handleGenerate = async () => {
-    let releaseNotes = '';
-
-    if (inputMode === 'text') {
-      releaseNotes = releaseNotesText.trim();
-      if (!releaseNotes) {
-        setError('Please paste release notes first.');
-        return;
-      }
-    } else if (inputMode === 'url') {
-      releaseNotes = releaseNotesUrl.trim();
-      if (!releaseNotes) {
-        setError('Please paste a URL first.');
-        return;
-      }
-    } else if (inputMode === 'update') {
-      releaseNotes = releaseNotesText.trim();
-      if (!releaseNotes) {
-        setError('Please paste release notes first.');
-        return;
-      }
-      if (!existingArticleText.trim() && !existingArticleUrl.trim()) {
-        setError('Please provide existing article (upload file, paste URL, or paste text).');
-        return;
-      }
-    }
-
+  // ============================================================================
+  // FUNCTION: ANALYZE RELEASE NOTES
+  // ============================================================================
+  // Analyzes release notes against existing help articles
+  const handleAnalyze = useCallback(async (notes: string) => {
+    setReleaseNotes(notes);
     setLoading(true);
-    setError('');
-    setGeneratedArticle('');
-    setUpdateAnalysis('');
-    setArticleTitle('');
-
+    setError(null);
+    
     try {
-      if (inputMode === 'update') {
-        // Use update-article API
-        const response = await fetch('/api/update-article', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            releaseNotes,
-            existingArticle: existingArticleText,
-            articleUrl: existingArticleUrl
-          }),
-        });
+      // Call backend API to compare release notes against help articles
+      const response = await fetch('/api/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          releaseNotes: notes,
+          articles: []
+        }),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to analyze article');
-        }
-
-        const data = await response.json();
-        setUpdateAnalysis(data.analysis);
-        setGeneratedArticle(data.updatedArticle || '');
-        setArticleTitle('Updated Article');
-      } else {
-        // Use existing generate API
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            releaseNotes,
-            isUrl: inputMode === 'url'
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to generate article');
-        }
-
-        const data = await response.json();
-        setGeneratedArticle(data.article);
-        setArticleTitle(data.title || 'Help Article');
+      if (!response.ok) {
+        throw new Error('Failed to analyze release notes');
       }
+
+      const data = await response.json();
+      setResults(data.data);
+      setAnalysisGaps(data.data?.gaps || []);
+      showToast('✅ Analysis complete!', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error generating article. Please try again.');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Analysis failed';
+      setError(errorMessage);
+      showToast(`❌ ${errorMessage}`, 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
-  const downloadFile = (content: string, filename: string, mimeType: string) => {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  // ============================================================================
+  // FUNCTION: GENERATE NEW HELP ARTICLE
+  // ============================================================================
+  // Creates a new help article based on user input topic
+  const handleCreateArticle = useCallback(async () => {
+    if (!newArticleTopic.trim()) {
+      showToast('Please enter a topic', 'error');
+      return;
+    }
 
-  const exportMarkdown = () => {
-    const content = inputMode === 'update' ? updateAnalysis : generatedArticle;
-    const markdown = `# ${articleTitle}\n\n${content}`;
-    downloadFile(markdown, `${articleTitle.toLowerCase().replace(/\s+/g, '-')}.md`, 'text/markdown');
-  };
-
-  const exportXML = () => {
-    const content = inputMode === 'update' ? generatedArticle : generatedArticle;
-    const topicId = articleTitle.toLowerCase().replace(/\s+/g, '-');
-    const sections = content.split('\n\n').filter(s => s.trim());
+    setCreatingArticle(true);
     
-    let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
-<topic id="${topicId}">
-  <title>${escapeXml(articleTitle)}</title>
-  <shortdesc>Generated from Solibri release notes</shortdesc>
-  <body>
-`;
-
-    sections.forEach((section, index) => {
-      const lines = section.split('\n');
-      const title = lines[0];
-      
-      xmlContent += `    <section id="section-${index + 1}">
-      <title>${escapeXml(title)}</title>
-`;
-
-      lines.slice(1).forEach(line => {
-        if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
-          xmlContent += `      <ul><li>${escapeXml(line.trim().substring(1).trim())}</li></ul>\n`;
-        } else if (line.trim()) {
-          xmlContent += `      <p>${escapeXml(line.trim())}</p>\n`;
-        }
+    try {
+      const response = await fetch('/api/generate-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: newArticleTopic,
+          context: releaseNotes || undefined,
+        }),
       });
 
-      xmlContent += `    </section>\n`;
-    });
+      if (!response.ok) {
+        throw new Error('Failed to generate article');
+      }
 
-    xmlContent += `  </body>
-</topic>`;
+      const data = await response.json();
+      
+      // Download the generated markdown
+      const blob = new Blob([data.content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${newArticleTopic.replace(/\s+/g, '-').toLowerCase()}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-    downloadFile(xmlContent, `${topicId}.xml`, 'application/xml');
-  };
-
-  const exportHTML = () => {
-    const content = inputMode === 'update' ? updateAnalysis : generatedArticle;
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(articleTitle)}</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; line-height: 1.6; color: #333; padding: 20px; }
-    h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
-    h2 { color: #34495e; margin-top: 30px; }
-    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-    pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
-    ul, ol { margin: 15px 0; }
-    li { margin: 8px 0; }
-    .keep { background: #d4edda; padding: 10px; border-radius: 5px; margin: 10px 0; }
-    .update { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
-    .new { background: #cce5ff; padding: 10px; border-radius: 5px; margin: 10px 0; }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(articleTitle)}</h1>
-  <div>${content.replace(/\n/g, '<br>')}</div>
-</body>
-</html>`;
-    downloadFile(htmlContent, `${articleTitle.toLowerCase().replace(/\s+/g, '-')}.html`, 'text/html');
-  };
-
-  const escapeXml = (str: string) => {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  };
-
-  const escapeHtml = (str: string) => {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  };
-
-  const handleClearAll = () => {
-    setReleaseNotesText('');
-    setReleaseNotesUrl('');
-    setExistingArticleText('');
-    setExistingArticleUrl('');
-    setGeneratedArticle('');
-    setUpdateAnalysis('');
-    setArticleTitle('');
-    setError('');
-  };
+      showToast('✅ Article generated and downloaded!', 'success');
+      setNewArticleTopic('');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Generation failed';
+      showToast(`❌ ${errorMessage}`, 'error');
+    } finally {
+      setCreatingArticle(false);
+    }
+  }, [newArticleTopic, releaseNotes, showToast]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-2">
-            Solibri AI Documentation Generator
-          </h1>
-          <p className="text-xl text-gray-600">
-            Convert release notes into professional help center articles
-          </p>
-        </div>
+    <>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-12">
+          {/* ====================================================================
+              HEADER - PAGE TITLE & DESCRIPTION
+              ==================================================================== */}
+          <div className="mb-12">
+            <h1 className="text-4xl font-bold text-text mb-2">
+              Release Notes Analyzer
+            </h1>
+            <p className="text-lg text-text-secondary">
+              Analyze release notes and get smart documentation recommendations
+            </p>
+          </div>
 
-        {/* Main Container */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left: Input */}
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Input
-            </h2>
+          {/* ====================================================================
+              TAB NAVIGATION - SWITCH BETWEEN ANALYZE & CREATE
+              ==================================================================== */}
+          <div className="flex gap-4 mb-8">
+            <button
+              onClick={() => setSelectedTab('analyze')}
+              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                selectedTab === 'analyze'
+                  ? 'bg-primary text-white'
+                  : 'bg-secondary text-text hover:bg-secondary-hover'
+              }`}
+            >
+              📊 Analyze Release Notes
+            </button>
+            <button
+              onClick={() => setSelectedTab('create')}
+              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                selectedTab === 'create'
+                  ? 'bg-primary text-white'
+                  : 'bg-secondary text-text hover:bg-secondary-hover'
+              }`}
+            >
+              ✨ Create Article
+            </button>
+          </div>
 
-            {/* Input Mode Tabs */}
-            <div className="flex gap-1 mb-6 border-b border-gray-300">
-              <button
-                onClick={() => {
-                  setInputMode('text');
-                  setError('');
-                }}
-                className={`pb-2 px-3 font-semibold transition text-sm ${
-                  inputMode === 'text'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                📝 Paste Text
-              </button>
-              <button
-                onClick={() => {
-                  setInputMode('url');
-                  setError('');
-                }}
-                className={`pb-2 px-3 font-semibold transition text-sm ${
-                  inputMode === 'url'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                🔗 From URL
-              </button>
-              <button
-                onClick={() => {
-                  setInputMode('update');
-                  setError('');
-                }}
-                className={`pb-2 px-3 font-semibold transition text-sm ${
-                  inputMode === 'update'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                ⚡ Update Article
-              </button>
-            </div>
-
-            {/* Text Input */}
-            {inputMode === 'text' && (
-              <textarea
-                value={releaseNotesText}
-                onChange={(e) => setReleaseNotesText(e.target.value)}
-                placeholder="Paste your Solibri release notes here..."
-                className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none font-mono text-sm"
-              />
-            )}
-
-            {/* URL Input */}
-            {inputMode === 'url' && (
+          {/* ====================================================================
+              TAB 1: ANALYZE RELEASE NOTES
+              ==================================================================== */}
+          {selectedTab === 'analyze' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* LEFT COLUMN: RELEASE NOTES INPUT */}
               <div>
-                <input
-                  type="url"
-                  value={releaseNotesUrl}
-                  onChange={(e) => setReleaseNotesUrl(e.target.value)}
-                  placeholder="e.g., https://www.solibri.com/articles/release-notes"
-                  className="w-full p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 font-mono text-sm"
-                />
-                <p className="mt-2 text-sm text-gray-600">
-                  🔍 Paste the URL to your release notes. The tool will fetch and extract the content.
-                </p>
+                <ReleaseNotesInput onAnalyze={handleAnalyze} />
               </div>
-            )}
 
-            {/* Update Article Input */}
-            {inputMode === 'update' && (
-              <div className="space-y-4">
-                {/* Release Notes */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    📋 Release Notes (what changed)
-                  </label>
-                  <textarea
-                    value={releaseNotesText}
-                    onChange={(e) => setReleaseNotesText(e.target.value)}
-                    placeholder="Paste the new release notes here..."
-                    className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none font-mono text-sm"
-                  />
-                </div>
-
-                {/* Existing Article - Input Mode Tabs */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    📄 Existing Help Article (to update)
-                  </label>
-                  
-                  <div className="flex gap-2 mb-3 border-b border-gray-300">
-                    <button
-                      onClick={() => {
-                        setExistingArticleInputMode('file');
-                        setExistingArticleText('');
-                        setExistingArticleUrl('');
-                      }}
-                      className={`pb-2 px-3 text-sm font-semibold transition ${
-                        existingArticleInputMode === 'file'
-                          ? 'border-b-2 border-indigo-600 text-indigo-600'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      📁 Upload HTML
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExistingArticleInputMode('url');
-                        setExistingArticleText('');
-                      }}
-                      className={`pb-2 px-3 text-sm font-semibold transition ${
-                        existingArticleInputMode === 'url'
-                          ? 'border-b-2 border-indigo-600 text-indigo-600'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      🔗 From URL
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExistingArticleInputMode('text');
-                        setExistingArticleUrl('');
-                      }}
-                      className={`pb-2 px-3 text-sm font-semibold transition ${
-                        existingArticleInputMode === 'text'
-                          ? 'border-b-2 border-indigo-600 text-indigo-600'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      ✏️ Paste Text
-                    </button>
-                  </div>
-
-                  {/* File Upload */}
-                  {existingArticleInputMode === 'file' && (
-                    <div 
-                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition cursor-pointer"
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const files = e.dataTransfer.files;
-                        if (files.length > 0) handleFileUpload(files[0]);
-                      }}
-                    >
-                      <input
-                        type="file"
-                        accept=".html,.txt,.md"
-                        onChange={(e) => {
-                          if (e.target.files?.[0]) {
-                            handleFileUpload(e.target.files[0]);
-                          }
-                        }}
-                        className="hidden"
-                        id="articleFileInput"
-                      />
-                      <label htmlFor="articleFileInput" className="cursor-pointer block">
-                        <p className="text-lg font-semibold text-gray-900 mb-1">
-                          📁 Drop HTML file here or click to browse
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Supported: .html, .txt, .md files
-                        </p>
-                      </label>
-                      {existingArticleText && (
-                        <p className="mt-3 text-sm text-green-600">
-                          ✅ File loaded ({Math.round(existingArticleText.length / 1024)} KB)
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* URL Input */}
-                  {existingArticleInputMode === 'url' && (
-                    <div>
-                      <input
-                        type="url"
-                        value={existingArticleUrl}
-                        onChange={(e) => setExistingArticleUrl(e.target.value)}
-                        placeholder="e.g., https://help.solibri.com/hc/en-us/articles/..."
-                        className="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 font-mono text-sm"
-                      />
-                      <p className="mt-2 text-xs text-gray-500">
-                        Note: Some sites may block automated access. If URL fails, use file upload instead.
+              {/* RIGHT COLUMN: ANALYSIS RESULTS */}
+              <div>
+                {!releaseNotes && (
+                  <div className="card">
+                    <div className="card-content">
+                      <p className="text-text-secondary text-center py-8">
+                        📝 Enter release notes to see which articles should be updated
                       </p>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Text Input */}
-                  {existingArticleInputMode === 'text' && (
-                    <textarea
-                      value={existingArticleText}
-                      onChange={(e) => setExistingArticleText(e.target.value)}
-                      placeholder="Paste the existing help article content here..."
-                      className="w-full h-24 p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 resize-none font-mono text-sm"
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleGenerate}
-                disabled={loading}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
-              >
-                {loading 
-                  ? (inputMode === 'update' ? 'Analyzing...' : 'Generating...') 
-                  : (inputMode === 'update' ? 'Analyze & Update' : 'Generate Article')
-                }
-              </button>
-
-              <button
-                onClick={handleClearAll}
-                disabled={loading}
-                className="px-6 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-900 font-bold py-3 rounded-lg transition duration-200"
-              >
-                Clear
-              </button>
-            </div>
-
-            {error && (
-              <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
-              </div>
-            )}
-          </div>
-
-          {/* Right: Output */}
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {inputMode === 'update' ? 'Update Analysis' : 'Generated Help Article'}
-            </h2>
-
-            {(generatedArticle || updateAnalysis) ? (
-              <div className="space-y-4">
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 max-h-[500px] overflow-y-auto">
-                  {inputMode === 'update' && updateAnalysis ? (
-                    <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
-                      {updateAnalysis}
+                {loading && (
+                  <div className="card">
+                    <div className="card-content">
+                      <p className="text-center py-8">⏳ Analyzing...</p>
                     </div>
-                  ) : (
-                    <>
-                      <h3 className="font-bold text-lg mb-3">{articleTitle}</h3>
-                      <div className="whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
-                        {generatedArticle}
+                  </div>
+                )}
+
+                {error && (
+                  <div className="card border-l-4 border-error">
+                    <div className="card-content">
+                      <p className="text-error font-medium">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                {results && !loading && (
+                  <div className="space-y-6">
+                    {/* Articles to Update */}
+                    {results.articles && results.articles.length > 0 && (
+                      <div className="card">
+                        <div className="card-header">
+                          <h3 className="card-title">
+                            📄 Articles Recommended for Update ({results.articles.length})
+                          </h3>
+                        </div>
+                        <div className="card-content">
+                          <p className="text-text-secondary mb-4">
+                            These articles should be reviewed and updated to reflect the new release:
+                          </p>
+                          <div className="space-y-4">
+                            {results.articles.map((article: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className="border border-card-border rounded-lg p-4 hover:bg-secondary transition-colors"
+                              >
+                                <div className="flex justify-between items-start mb-2">
+                                  <h4 className="font-semibold text-text">
+                                    {article.title}
+                                  </h4>
+                                  <span className="bg-primary text-white px-2 py-1 rounded text-sm font-medium">
+                                    Match: {article.relevanceScore}/10
+                                  </span>
+                                </div>
+                                <p className="text-text-secondary text-sm">
+                                  {article.content
+                                    .replace(/<[^>]*>/g, '')
+                                    .substring(0, 150)}
+                                  ...
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </>
-                  )}
-                </div>
+                    )}
 
-                {/* Export Buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      const content = inputMode === 'update' ? updateAnalysis : generatedArticle;
-                      navigator.clipboard.writeText(content);
-                      alert('Copied to clipboard!');
-                    }}
-                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
-                  >
-                    📋 Copy
-                  </button>
-                  <button
-                    onClick={exportMarkdown}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
-                  >
-                    📄 Markdown
-                  </button>
-                  <button
-                    onClick={exportXML}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
-                  >
-                    ⚙️ Paligo XML
-                  </button>
-                  <button
-                    onClick={exportHTML}
-                    className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded transition duration-200 text-sm"
-                  >
-                    🌐 HTML
-                  </button>
+                    {/* Documentation Gaps */}
+                    {analysisGaps.length > 0 && (
+                      <div className="card">
+                        <div className="card-header">
+                          <h3 className="card-title">
+                            ⚠️ Documentation Gaps ({analysisGaps.length})
+                          </h3>
+                        </div>
+                        <div className="card-content">
+                          <p className="text-text-secondary mb-4">
+                            These topics are mentioned in the release but have no matching help articles:
+                          </p>
+                          <div className="space-y-2">
+                            {analysisGaps.map((gap: any, idx: number) => (
+                              <div key={idx} className="bg-bg-4 border-l-4 border-warning p-3 rounded">
+                                <p className="font-medium text-text">{gap.topic}</p>
+                                <p className="text-text-secondary text-sm">{gap.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ====================================================================
+              TAB 2: CREATE NEW HELP ARTICLE
+              ==================================================================== */}
+          {selectedTab === 'create' && (
+            <div className="max-w-2xl mx-auto">
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">✨ Create New Help Article</h3>
+                </div>
+                <div className="card-content">
+                  <div className="bg-bg-3 border-l-4 border-info p-4 rounded mb-6">
+                    <p className="font-semibold text-text mb-2">💡 Tip:</p>
+                    <p className="text-text-secondary">
+                      The AI will generate a well-structured help article in Solibri's style with sections, examples, and practical guidance.
+                    </p>
+                  </div>
+
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-text mb-4">How It Works:</h4>
+                    <ol className="list-decimal list-inside space-y-2 text-text-secondary">
+                      <li>Enter the article topic you want to create</li>
+                      <li>Optionally include release notes for context</li>
+                      <li>Click "Generate Article Draft"</li>
+                      <li>A markdown file will be generated and downloaded</li>
+                      <li>Edit and refine in your editor, then import to Paligo</li>
+                    </ol>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="form-label">Article Topic</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g., How to configure advanced filters"
+                        value={newArticleTopic}
+                        onChange={(e) => setNewArticleTopic(e.target.value)}
+                        disabled={creatingArticle}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="form-label">Release Notes (Optional)</label>
+                      <textarea
+                        className="form-control"
+                        placeholder="Paste release notes to give context to the AI..."
+                        rows={6}
+                        value={releaseNotes}
+                        onChange={(e) => setReleaseNotes(e.target.value)}
+                        disabled={creatingArticle}
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleCreateArticle}
+                      disabled={creatingArticle || !newArticleTopic.trim()}
+                      className="btn btn-primary btn-lg btn-full"
+                    >
+                      {creatingArticle ? '⏳ Generating...' : '📝 Generate Article Draft'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
-                <p className="text-gray-400 text-center px-4">
-                  {inputMode === 'update' 
-                    ? 'Update analysis will appear here...\n\nCompare release notes against existing articles to see what needs updating.'
-                    : 'Generated article will appear here...'
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-12 text-center text-gray-600 text-sm">
-          <p>HAMK AI Project | Solibri AI Documentation Assistant</p>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+
+      {/* TOAST CONTAINER - NOTIFICATION DISPLAY */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </>
   );
 }

@@ -3,9 +3,9 @@ export const SOLIBRI_SYSTEM_PROMPT = `You are a technical documentation speciali
 ## Core Solibri Concepts
 
 ### Products
-- **Solibri Model Checker (SMC)**: Main product for automated QA checking of building models
-- **Solibri Anywhere**: Web-based model viewer
-- **Solibri Exchange**: Document management and issue tracking
+- **Solibri Desktop**: Main product for automated QA checking of building models
+- **Solibri CheckPoint**: Cloud-based model checking
+- **Solibri Center**: User and license management platform
 
 ### Technical Terms
 - **IFC (Industry Foundation Class)**: Standard building model format - CHANGES HERE HAVE HIGH IMPACT
@@ -56,7 +56,7 @@ Always respond with valid JSON when asked for analysis:
 `;
 
 export const SOLIBRI_TERMINOLOGY = {
-  SMC: "Solibri Model Checker",
+  SMC: "Solibri file format",
   IFC: "Industry Foundation Class",
   BIM: "Building Information Modeling",
   QA: "Quality Assurance",
@@ -65,8 +65,7 @@ export const SOLIBRI_TERMINOLOGY = {
   Check: "Validation process",
   Issue: "Finding or problem",
   Model: "IFC file or building model",
-  Anywhere: "Web-based Solibri viewer",
-  Exchange: "Document management system",
+  Anywhere: "Free Solibri viewer",
 };
 
 export function validateSystemPrompt(): boolean {
