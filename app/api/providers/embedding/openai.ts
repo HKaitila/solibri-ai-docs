@@ -1,5 +1,7 @@
+// app/api/providers/embedding/openai.ts - FIXED: Batch processing with token limit
+
 import OpenAI from "openai";
-import type { Article, ScoredArticle } from "../types";
+import type { Article, ScoredArticle } from "../../types";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -7,59 +9,152 @@ const client = new OpenAI({
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
-// Limits to avoid exceeding the model context window
-const MAX_ARTICLES = 50;
-const MAX_CHARS_PER_ARTICLE = 4000;
+// Batch settings to avoid token limits
+const BATCH_SIZE = 20; // Process 20 articles at a time
+const MAX_ARTICLES = 500;
+const MAX_CHARS_PER_ARTICLE = 4000; // Reduced from 8000 to save tokens
 
 export class OpenAIProvider {
+  /**
+   * Embed texts in batches to avoid token limits
+   */
   async embed(texts: string[]): Promise<number[][]> {
-    const response = await client.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: texts,
-    });
+    if (!texts || texts.length === 0) {
+      return [];
+    }
 
-    return response.data.map((item) => item.embedding);
+    try {
+      const response = await client.embeddings.create({
+        model: EMBEDDING_MODEL,
+        input: texts.map(t => t.substring(0, MAX_CHARS_PER_ARTICLE)), // Truncate to save tokens
+      });
+
+      return response.data
+        .sort((a, b) => a.index - b.index)
+        .map((item) => item.embedding);
+    } catch (error) {
+      console.error("[OpenAI] Embedding error:", error);
+      throw error;
+    }
   }
 
+  /**
+   * Search for similar articles - processes in batches to avoid token limits
+   */
   async search(query: string, articles: Article[]): Promise<ScoredArticle[]> {
-    if (!articles.length) return [];
+    if (!articles.length) {
+      console.log("[OpenAI] No articles provided");
+      return [];
+    }
 
-    // 1) Limit number of articles and truncate long content
-    const limitedArticles = articles.slice(0, MAX_ARTICLES);
+    try {
+      console.log(`[OpenAI] Searching ${articles.length} articles...`);
 
-    const inputs = [
-      query,
-      ...limitedArticles.map((a) => {
-        const content =
-          a.content.length > MAX_CHARS_PER_ARTICLE
-            ? a.content.slice(0, MAX_CHARS_PER_ARTICLE)
-            : a.content;
+      // Limit articles to process
+      const limitedArticles = articles.slice(0, MAX_ARTICLES);
 
-        return `${a.title}\n\n${content}`;
-      }),
-    ];
+      console.log(`[OpenAI] Processing ${limitedArticles.length} articles for embedding`);
 
-    const [queryEmbedding, ...articleEmbeddings] = await this.embed(inputs);
+      // Step 1: Embed the query
+      console.log("[OpenAI] Embedding query...");
+      const queryEmbedding = await this.embed([
+        query.substring(0, MAX_CHARS_PER_ARTICLE),
+      ]);
 
-    // 2) Compute cosine similarity
-    const scores = articleEmbeddings.map((embedding, index) => ({
-      article: limitedArticles[index],
-      score: cosineSimilarity(queryEmbedding, embedding),
-    }));
+      if (queryEmbedding.length === 0) {
+        console.error("[OpenAI] Failed to generate query embedding");
+        return [];
+      }
 
-    // 3) Sort and return top matches
-    return scores
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10)
-      .map((s) => ({
-        ...s.article,
-        relevanceScore: s.score,
-      }));
+      const queryEmbed = queryEmbedding[0];
+
+      // Step 2: Embed articles in batches
+      console.log(
+        `[OpenAI] Embedding articles in batches of ${BATCH_SIZE}...`
+      );
+
+      const articleScores: Array<{
+        article: Article;
+        score: number;
+      }> = [];
+
+      // Process articles in batches
+      for (let i = 0; i < limitedArticles.length; i += BATCH_SIZE) {
+        const batch = limitedArticles.slice(
+          i,
+          Math.min(i + BATCH_SIZE, limitedArticles.length)
+        );
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(limitedArticles.length / BATCH_SIZE);
+
+        console.log(
+          `[OpenAI] Batch ${batchNum}/${totalBatches} (${batch.length} articles)...`
+        );
+
+        try {
+          // Prepare article texts
+          const articleTexts = batch.map((a) => {
+            const content =
+              a.content.length > MAX_CHARS_PER_ARTICLE
+                ? a.content.slice(0, MAX_CHARS_PER_ARTICLE)
+                : a.content;
+            return `${a.title}\n\n${content}`;
+          });
+
+          // Get embeddings for this batch
+          const batchEmbeddings = await this.embed(articleTexts);
+
+          // Calculate similarities for this batch
+          for (let j = 0; j < batch.length; j++) {
+            const embedding = batchEmbeddings[j];
+            const score = cosineSimilarity(queryEmbed, embedding);
+
+            articleScores.push({
+              article: batch[j],
+              score,
+            });
+          }
+        } catch (batchError) {
+          console.error(
+            `[OpenAI] Error processing batch ${batchNum}:`,
+            batchError
+          );
+          // Continue with next batch even if one fails
+          continue;
+        }
+      }
+
+      console.log(
+        `[OpenAI] Processed ${articleScores.length} articles successfully`
+      );
+
+      // Sort by score and return top results
+      const topResults = articleScores
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+        .map((s) => ({
+          ...s.article,
+          relevanceScore: s.score,
+        }));
+
+      console.log(`[OpenAI] Found ${topResults.length} top matching articles`);
+
+      return topResults;
+    } catch (error) {
+      console.error("[OpenAI] Search error:", error);
+      throw error;
+    }
   }
 }
 
-// Simple cosine similarity
+/**
+ * Compute cosine similarity between two vectors
+ */
 function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) {
+    return 0;
+  }
+
   let dot = 0;
   let na = 0;
   let nb = 0;
@@ -70,6 +165,9 @@ function cosineSimilarity(a: number[], b: number[]): number {
     nb += b[i] * b[i];
   }
 
-  if (!na || !nb) return 0;
+  if (na === 0 || nb === 0) {
+    return 0;
+  }
+
   return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }

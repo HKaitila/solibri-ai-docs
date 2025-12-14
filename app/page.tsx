@@ -798,7 +798,7 @@ ${generatedArticle
                             </span>
                               </div>
                                 <div style={{ marginTop: '8px', fontSize: '13px', color: '#555' }}>
-                                   <strong>Keywords:</strong> {article.matchedKeywords.join(', ')}
+                                   <strong>Keywords:</strong> {article.relevanceScore}%
                                 </div>
                               <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
                              <strong>Suggestion:</strong> {article.suggestedUpdates || 'Review for relevance'}

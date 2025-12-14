@@ -1,21 +1,31 @@
-// lib/embeddings.ts
-import { OpenAI } from 'openai';
+// lib/embeddings.ts - UPDATED with caching
 
-interface Article {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  updatedAt: string;
-  relevanceScore: number;
-}
+import OpenAI from "openai";
+import type { Article, ScoredArticle } from "../api/providers/types";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ← ← ← ← ← ADD CACHE HERE
+const embeddingCache = new Map<string, number[]>();
+
 /**
- * Embed text using OpenAI's text-embedding-3-small model
+ * Get embedding from cache or generate new one
+ */
+export async function getEmbeddingWithCache(text: string): Promise<number[]> {
+  if (embeddingCache.has(text)) {
+    console.log('[Embeddings] Cache hit');
+    return embeddingCache.get(text)!;
+  }
+  const embedding = await embedText(text);
+  embeddingCache.set(text, embedding);
+  console.log(`[Embeddings] Cached embedding (cache size: ${embeddingCache.size})`);
+  return embedding;
+}
+
+/**
+ * Generate embedding for a single text
  */
 export async function embedText(text: string): Promise<number[]> {
   if (!text || text.trim().length === 0) {
@@ -25,56 +35,48 @@ export async function embedText(text: string): Promise<number[]> {
   try {
     const response = await openai.embeddings.create({
       model: 'text-embedding-3-small',
-      input: text.substring(0, 8000), // OpenAI has token limits
+      input: text.substring(0, 8000),
     });
-
-    if (!response.data || response.data.length === 0) {
-      throw new Error('No embedding returned from OpenAI');
-    }
 
     return response.data[0].embedding;
   } catch (error) {
-    console.error('Embedding error:', error);
+    console.error('[Embeddings] Error generating embedding:', error);
     throw error;
   }
 }
 
 /**
- * Calculate cosine similarity between two embedding vectors
- * Returns value between 0 and 1 (1 = identical, 0 = completely different)
+ * Calculate cosine similarity between two embeddings
  */
-export function cosineSimilarity(vec1: number[], vec2: number[]): number {
-  if (vec1.length !== vec2.length) {
-    throw new Error('Vectors must have the same length');
-  }
-
-  let dotProduct = 0;
-  let magnitude1 = 0;
-  let magnitude2 = 0;
-
-  for (let i = 0; i < vec1.length; i++) {
-    dotProduct += vec1[i] * vec2[i];
-    magnitude1 += vec1[i] * vec1[i];
-    magnitude2 += vec2[i] * vec2[i];
-  }
-
-  const denominator = Math.sqrt(magnitude1) * Math.sqrt(magnitude2);
-
-  if (denominator === 0) {
+export function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) {
     return 0;
   }
 
-  return dotProduct / denominator;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+
+  if (na === 0 || nb === 0) {
+    return 0;
+  }
+
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
 /**
- * Find articles most similar to the given text using embeddings
- * Returns articles ranked by semantic similarity
+ * Find articles most similar to the given text
  */
 export async function findSimilarArticles(
   text: string,
   articles: Article[],
-  threshold: number = 0.4
+  threshold: number = 0.6
 ): Promise<Article[]> {
   if (!articles || articles.length === 0) {
     return [];
@@ -158,4 +160,29 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
     console.error('Batch embedding error:', error);
     throw error;
   }
+}
+
+/**
+ * Clear the embedding cache (useful for testing)
+ */
+export function clearEmbeddingCache(): void {
+  embeddingCache.clear();
+  console.log('[Embeddings] Cache cleared');
+}
+
+/**
+ * Get cache statistics
+ */
+export function getEmbeddingCacheStats(): {
+  size: number;
+  items: string[];
+} {
+  const items = Array.from(embeddingCache.keys()).map(key =>
+    key.substring(0, 50) + (key.length > 50 ? '...' : '')
+  );
+
+  return {
+    size: embeddingCache.size,
+    items,
+  };
 }
