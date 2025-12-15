@@ -31,7 +31,6 @@ export default function Page() {
   const [version, setVersion] = useState('');
   const [releaseDate, setReleaseDate] = useState('');
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults | null>(null);
-  const [editingNewArticle, setEditingNewArticle] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -48,9 +47,6 @@ export default function Page() {
   const [selectedArticleForSuggestion, setSelectedArticleForSuggestion] = useState<string | null>(null);
   const [suggestionText, setSuggestionText] = useState<string>('');
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
-
-  // Expanded article
-  const [expandedDraftArticleId, setExpandedDraftArticleId] = useState<string | null>(null);
 
   const detectMetadata = (text: string) => {
     const versionMatch = text.match(/v?(\d+\.\d+\.\d+)/);
@@ -317,9 +313,16 @@ ${generatedArticle
   }
 };
 
-/*  const exportAnalysisToMarkdown = () => {
+  // new
+  const [exportLoading, setExportLoading] = useState(false);
+  const [selectedArticleForSuggestion, setSelectedArticleForSuggestion] = useState<string | null>(null);
+  const [suggestionText, setSuggestionText] = useState<string>('');
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+
+
+  const exportAnalysisToMarkdown = () => {
     if (!analysisResults) return;
-    const md = `# Release ${version} - Help Article Audit\n\n## Summary\n- **Version**: ${version}\n- **Release Date**: ${releaseDate}\n- **Matching Articles**: ${analysisResults.articles.length}\n- **Coverage**: ${calculateCoverage(analysisResults.articles)}%\n- **Documentation Gaps**: ${analysisResults.gaps.length}\n\n## Articles to Update\n${analysisResults.articles.map(a => `- ${a.title} (${Math.round(a.relevanceScore)}%)`).join('\n')}\n\n## Documentation Gaps\n${analysisResults.gaps.map(g => `- ${g.topic}`).join('\n')}`;
+    const md = `# Release ${version} - Help Article Audit\n\n## Summary\n- **Version**: ${version}\n- **Release Date**: ${releaseDate}\n- **Matching Articles**: ${analysisResults.articles.length}\n- **Coverage**: ${calculateCoverage(analysisResults.articles)}%\n- **Documentation Gaps**: ${analysisResults.gaps.length}\n\n## Articles to Update\n${analysisResults.articles.map(a => `- ${a.title} (${Math.round(a.relevanceScore * 100)}%)`).join('\n')}\n\n## Documentation Gaps\n${analysisResults.gaps.map(g => `- ${g.topic}`).join('\n')}`;
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -328,7 +331,6 @@ ${generatedArticle
     a.click();
     window.URL.revokeObjectURL(url);
   };
-*/
 
   // Inline Styles
   const styles = {
@@ -825,107 +827,48 @@ ${generatedArticle
                     </div>
                   </div>
 
+
+                 
+              }
+
+
+                  {/* EXPORT */}
+                  <button
+                    style={{...styles.buttonPrimary, width: '100%'}}
+                    onClick={exportAnalysisToMarkdown}
+                  >
+                    📥 Export as Markdown
+                  </button>
+
                   {/* ARTICLES */}
-                      <div style={styles.card}>
-                        <h3 style={styles.cardTitle}>Articles to Update</h3>
-                        {analysisResults.articles.map((article) => (
-                          <div key={article.id} style={styles.articleCard}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                              <strong style={{ color: '#000000' }}>{article.title}</strong>
-                              <span
-                                style={{
-                                  backgroundColor: '#e3f2fd',
-                                  color: '#0066cc',
-                                  fontSize: '12px',
-                                  fontWeight: 'bold',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                }}
-                              >
-                                {Math.round(article.relevanceScore)}% match
-                              </span>
-                            </div>
+                  <div style={styles.card}>
+                    <h3 style={styles.cardTitle}>Articles to Update</h3>
+                    {analysisResults.articles.map((article) => (
+                      <div key={article.id} style={styles.articleCard}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                          <strong style={{color: '#000000'}}>{article.title}</strong>
+                          <span style={{backgroundColor: '#e3f2fd', color: '#0066cc', fontSize: '12px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px'}}>
+                            {Math.round(article.relevanceScore * 100)}% match
+                          </span>
 
-                            {selectedArticleForSuggestion === article.id && suggestionText && (
-                              <div
-                                style={{
-                                  padding: '10px',
-                                  marginBottom: '8px',
-                                  backgroundColor: '#fefce8',
-                                  border: '1px solid #facc15',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  lineHeight: '1.5',
-                                  color: '#713f12',
-                                }}
-                              >
-                                <strong>✨ AI Suggestion:</strong>
-                                <p style={{ margin: '6px 0 0 0' }}>{suggestionText}</p>
+                        
+
+                        </div>
+                        <div style={{fontSize: '13px', color: '#666666', margin: 0}}>
+                         <span style={{display: 'block', marginBottom: '8px'}}>
+                          {Math.round(article.relevanceScore * 100)}% match
+                            </span>
                               </div>
-                            )}
-
-                            <div style={{ fontSize: '13px', color: '#666666', margin: 0 }}>
-                              <span style={{ display: 'block', marginBottom: '8px' }}>
-                                {Math.round(article.relevanceScore)}% match
-                              </span>
-                            </div>
-
-                            <div style={{ marginTop: '8px', fontSize: '13px', color: '#555' }}>
-                              <strong>Keywords:</strong> {Math.round(article.relevanceScore)}%
-                            </div>
-
-                            {/* 1) UPDATED suggestion line */}
-                            <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
-                              <strong>Suggestion:</strong>{' '}
-                              {article.updateSummary || article.suggestedUpdates || 'Review for relevance'}
-                            </div>
-
-                            {/* 2) NEW: View draft update button */}
-                            <div style={{ marginTop: '8px' }}>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedDraftArticleId(
-                                    expandedDraftArticleId === article.id ? null : article.id,
-                                  )
-                                }
-                                style={{
-                                  padding: '6px 10px',
-                                  fontSize: '12px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #0ea5e9',
-                                  backgroundColor:
-                                    expandedDraftArticleId === article.id ? '#0ea5e9' : '#ffffff',
-                                  color:
-                                    expandedDraftArticleId === article.id ? '#ffffff' : '#0ea5e9',
-                                  cursor: 'pointer',
-                                }}
-                                disabled={false} //{!article.draftUpdate || article.draftUpdate.trim().length === 0}
-                              >
-                                {expandedDraftArticleId === article.id ? 'Hide draft update' : 'View draft update'}
-                              </button>
-                            </div>
-
-                            {/* 3) NEW: Draft panel */}
-                            {expandedDraftArticleId === article.id && article.draftUpdate && (
-                              <div
-                                style={{
-                                  marginTop: '8px',
-                                  padding: '10px',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#f9fafb',
-                                  border: '1px solid #e5e7eb',
-                                  fontSize: '13px',
-                                  color: '#374151',
-                                  whiteSpace: 'pre-wrap',
-                                }}
-                              >
-                                {article.draftUpdate}
-                              </div>
-                            )}
+                                <div style={{ marginTop: '8px', fontSize: '13px', color: '#555' }}>
+                                   <strong>Keywords:</strong> {article.relevanceScore}%
+                                </div>
+                              <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
+                             <strong>Suggestion:</strong> {article.suggestedUpdates || 'Review for relevance'}
                           </div>
-                        ))}
+
                       </div>
+                    ))}
+                  </div>
 
                   {/* GAPS */}
                   {analysisResults.gaps.length > 0 && (
@@ -943,76 +886,6 @@ ${generatedArticle
                   )}
                 </>
               )}
-
-              {!editingNewArticle && (
-                  <section
-                    style={{
-                      marginBottom: '24px',
-                      padding: '20px',
-                      backgroundColor: '#eff6ff',
-                      border: '2px solid #0284c7',
-                      borderRadius: '8px',
-                    }}
-                  >
-                    <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 'bold', color: '#0c4a6e' }}>
-                      📥 Export Analysis Results
-                    </h3>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => handleExport('xml')}
-                        disabled={exportLoading}
-                        style={{
-                          padding: '10px 16px',
-                          backgroundColor: '#dc2626',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: exportLoading ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          opacity: exportLoading ? 0.6 : 1,
-                        }}
-                      >
-                        {exportLoading ? '⏳' : '📄'} XML
-                      </button>
-                      <button
-                        onClick={() => handleExport('markdown')}
-                        disabled={exportLoading}
-                        style={{
-                          padding: '10px 16px',
-                          backgroundColor: '#059669',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: exportLoading ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          opacity: exportLoading ? 0.6 : 1,
-                        }}
-                      >
-                        {exportLoading ? '⏳' : '📋'} Markdown
-                      </button>
-                      <button
-                        onClick={() => handleExport('json')}
-                        disabled={exportLoading}
-                        style={{
-                          padding: '10px 16px',
-                          backgroundColor: '#7c3aed',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: exportLoading ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          opacity: exportLoading ? 0.6 : 1,
-                        }}
-                      >
-                        {exportLoading ? '⏳' : '⚙️'} JSON
-                      </button>
-                    </div>
-                  </section>
-                )}
-
             </div>
           </>
         )}

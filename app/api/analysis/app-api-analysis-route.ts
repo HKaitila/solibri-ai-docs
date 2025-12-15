@@ -1,9 +1,8 @@
-// app/api/analysis/route.ts - UPDATED: Using OpenAI Embeddings + Claude Suggestions
+// app/api/analysis/route.ts - UPDATED: Using OpenAI Embeddings Integration
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getZendeskService, ZendeskArticle } from '../../../lib/zendesk';
 import { getEmbeddingProvider } from '../providers/embedding/factory';
-import { generateUpdateSuggestion as generateClaudeUpdateSuggestion } from '../providers/ai/claude';
 
 interface AnalysisRequest {
   releaseNotes: string;
@@ -15,12 +14,8 @@ interface MatchedArticle {
   id: string;
   title: string;
   url: string;
-  relevanceScore: number;      // 0–100 scale
-  suggestedUpdates?: string;   // legacy short label
-
-  // NEW: richer AI output
-  updateSummary?: string;      // multiline bullet-style summary
-  draftUpdate?: string;        // short draft paragraph/section
+  relevanceScore: number;
+  suggestedUpdates?: string;
 }
 
 interface AnalysisResponse {
@@ -45,7 +40,7 @@ function extractTopics(text: string): string[] {
     'the', 'and', 'with', 'from', 'have', 'that', 'this', 'will',
     'about', 'your', 'also', 'been', 'more', 'than', 'when', 'what',
     'where', 'which', 'help', 'article', 'information', 'solibri',
-    'features', 'improvements', 'updates', 'new', 'version', 'release',
+    'features', 'improvements', 'updates', 'new', 'version', 'release'
   ]);
 
   const topics = words
@@ -56,14 +51,14 @@ function extractTopics(text: string): string[] {
 }
 
 /**
- * Generate coarse label based on numeric relevance score
+ * Generate suggested update based on relevance score
  */
-function generateScoreLabel(score0To1: number): string {
-  if (score0To1 < 0.5) {
+function generateUpdateSuggestion(score: number): string {
+  if (score < 0.5) {
     return 'Review for relevance';
-  } else if (score0To1 < 0.65) {
+  } else if (score < 0.65) {
     return 'Update with related information';
-  } else if (score0To1 < 0.8) {
+  } else if (score < 0.8) {
     return 'Update with new information';
   } else {
     return 'Priority update required';
@@ -87,49 +82,13 @@ function generateSummary(
   date: string,
   matchedCount: number,
   gapCount: number,
-  totalTopics: number,
+  totalTopics: number
 ): string {
-  const coverage =
-    matchedCount >= 3 ? 'Good' : matchedCount >= 1 ? 'Moderate' : 'Low';
-
+  const coverage = matchedCount >= 3 ? 'Good' : matchedCount >= 1 ? 'Moderate' : 'Low';
   return `Version ${version} (${date}): ${matchedCount} articles matched, ${gapCount} gaps identified, ${totalTopics} key topics. Coverage: ${coverage}`;
 }
 
-/**
- * Helper: call Claude to get richer suggestions for a matched article
- * Uses existing generateUpdateSuggestion(), then shapes into updateSummary/draftUpdate.
- */
-async function getRichSuggestionsForArticle(params: {
-  releaseNotes: string;
-  zendeskArticle: ZendeskArticle;
-  relevanceScore0To100: number;
-}): Promise<{ updateSummary?: string; draftUpdate?: string }> {
-  const { releaseNotes, zendeskArticle, relevanceScore0To100 } = params;
-
-  // Use existing Claude helper to get a concise suggestion (2–3 sentences)
-  // and treat it as the update summary
-  const { summary, draftUpdate } = await generateClaudeUpdateSuggestion(
-  releaseNotes,
-  {
-    id: String(zendeskArticle.id),
-    title: zendeskArticle.title,
-    content: zendeskArticle.body || '',
-    url:
-      zendeskArticle.html_url ||
-      `https://help.solibri.com/hc/en-us/articles/${zendeskArticle.id}`,
-    relevanceScore: relevanceScore0To100,
-  },
-);
-
-return {
-  updateSummary: summary,
-  draftUpdate,
-};
-}
-
-export async function POST(
-  request: NextRequest,
-): Promise<NextResponse<AnalysisResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
     const body: AnalysisRequest = await request.json();
     const { releaseNotes, version = 'Unknown', date = 'Unknown' } = body;
@@ -137,7 +96,7 @@ export async function POST(
     if (!releaseNotes || releaseNotes.trim().length === 0) {
       return NextResponse.json(
         { success: false, error: 'Release notes are required' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -149,121 +108,64 @@ export async function POST(
     try {
       const zendeskService = getZendeskService();
       articles = await zendeskService.getAllArticles();
-      console.log(
-        '[Analysis] Retrieved',
-        articles.length,
-        'articles from Zendesk',
-      );
+      console.log('[Analysis] Retrieved', articles.length, 'articles from Zendesk');
     } catch (error) {
       console.error('[Analysis] Error fetching Zendesk articles:', error);
       return NextResponse.json(
         {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Failed to fetch articles from Zendesk',
+          error: error instanceof Error ? error.message : 'Failed to fetch articles from Zendesk',
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
     // Step 2: Use OpenAI embeddings to find similar articles
     console.log('[Analysis] Using OpenAI embeddings for semantic matching...');
     let matchedArticles: MatchedArticle[] = [];
-
     try {
       const provider = getEmbeddingProvider();
-
+      
       // Convert Zendesk articles to format expected by provider
       const providerArticles = articles.map(article => ({
         id: article.id,
         title: article.title,
         content: article.body,
-        url:
-          article.html_url ||
-          `https://help.solibri.com/hc/en-us/articles/${article.id}`,
+        url: article.html_url || `https://help.solibri.com/hc/en-us/articles/${article.id}`,
       }));
 
       // Search for semantically similar articles
-      const scoredArticles = await provider.search(
-        releaseNotes,
-        providerArticles,
-      );
-      console.log(
-        '[Analysis] Found',
-        scoredArticles.length,
-        'semantically similar articles',
-      );
+      const scoredArticles = await provider.search(releaseNotes, providerArticles);
 
-      const topScored = scoredArticles.slice(0, 5);
-      matchedArticles = [];
+      console.log('[Analysis] Found', scoredArticles.length, 'semantically similar articles');
 
-      // Build richer MatchedArticle objects (sequential for clarity)
-      for (const scored of topScored) {
-        const relevanceScore0To100 = Math.round(scored.relevanceScore * 100);
-        const label = generateScoreLabel(scored.relevanceScore);
+      // Format results - take top 5
+      matchedArticles = scoredArticles
+        .slice(0, 5)
+        .map(article => ({
+          id: article.id,
+          title: article.title,
+          url: article.url,
+          relevanceScore: Math.round(article.relevanceScore * 100), // Convert to 0-100 scale
+          suggestedUpdates: generateUpdateSuggestion(article.relevanceScore),
+        }));
 
-        const zendeskArticle = articles.find(
-          a => String(a.id) === String(scored.id),
-        );
-
-        let updateSummary: string | undefined;
-        let draftUpdate: string | undefined;
-
-        if (zendeskArticle) {
-          try {
-            const rich = await getRichSuggestionsForArticle({
-              releaseNotes,
-              zendeskArticle,
-              relevanceScore0To100,
-            });
-            updateSummary = rich.updateSummary;
-            draftUpdate = rich.draftUpdate;
-          } catch (error) {
-            console.error(
-              '[Analysis] Error getting rich suggestions from Claude:',
-              error,
-            );
-          }
-        }
-
-        matchedArticles.push({
-          id: scored.id,
-          title: scored.title,
-          url: scored.url,
-          relevanceScore: relevanceScore0To100,
-          suggestedUpdates: label,
-          updateSummary,
-          draftUpdate,
-        });
-      }
-
-      console.log(
-        '[Analysis] Formatted',
-        matchedArticles.length,
-        'articles for response',
-      );
+      console.log('[Analysis] Formatted', matchedArticles.length, 'articles for response');
     } catch (error) {
       console.error('[Analysis] Error in semantic matching:', error);
       return NextResponse.json(
         {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Semantic matching failed',
+          error: error instanceof Error ? error.message : 'Semantic matching failed',
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
     // Step 3: Detect gaps (topics not well covered by matched articles)
     console.log('[Analysis] Detecting documentation gaps...');
     const topics = extractTopics(releaseNotes);
-    const matchedTitles = matchedArticles
-      .map(a => a.title.toLowerCase())
-      .join(' ');
+    const matchedTitles = matchedArticles.map(a => a.title.toLowerCase()).join(' ');
 
     const gaps = topics
       .filter(topic => !matchedTitles.includes(topic.toLowerCase()))
@@ -282,7 +184,7 @@ export async function POST(
       date,
       matchedArticles.length,
       gaps.length,
-      topics.length,
+      topics.length
     );
 
     console.log('[Analysis] Analysis complete');
@@ -301,15 +203,15 @@ export async function POST(
         totalArticlesSearched: articles.length,
       },
     });
+
   } catch (error) {
     console.error('[Analysis] Unexpected error:', error);
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : 'Analysis failed',
+        error: error instanceof Error ? error.message : 'Analysis failed',
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
