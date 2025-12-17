@@ -45,9 +45,16 @@ export default function Page() {
 
   // New stuff
   const [exportLoading, setExportLoading] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedArticleForSuggestion, setSelectedArticleForSuggestion] = useState<string | null>(null);
   const [suggestionText, setSuggestionText] = useState<string>('');
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [draftExportLoading, setDraftExportLoading] = useState(false);
+
+  const [isDragOver, setIsDragOver] = useState(false);
+
 
   // Expanded article
   const [expandedDraftArticleId, setExpandedDraftArticleId] = useState<string | null>(null);
@@ -68,6 +75,33 @@ export default function Page() {
     setReleaseNotes(text);
     detectMetadata(text);
   };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+  event.preventDefault();
+  event.stopPropagation();
+  setIsDragOver(true);
+};
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(false);
+
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    const text = await file.text();
+    setReleaseNotes(text);
+    detectMetadata(text);
+  };
+
 
   const handleAnalyze = async () => {
     if (!releaseNotes.trim()) {
@@ -263,6 +297,41 @@ ${generatedArticle
     window.URL.revokeObjectURL(url);
   };
 
+  const handleExportGeneratedWithTranslation = async (
+  format: 'markdown' | 'html',
+  targetLanguage?: 'FI' | 'DE' | 'NL' | 'FR',
+) => {
+  if (!generatedArticle || !articleTopic.trim()) return;
+
+  try {
+    const response = await fetch('/api/export-generated-article', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: articleTopic,
+        content: generatedArticle,
+        format,
+        targetLanguage,
+      }),
+    });
+
+    if (!response.ok) throw new Error('Export failed');
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const base = articleTopic.toLowerCase().replace(/\s+/g, '-');
+    const ext = format === 'html' ? 'html' : 'md';
+    const langSuffix = targetLanguage ? `-${targetLanguage.toLowerCase()}` : '';
+    a.href = url;
+    a.download = `${base}-article${langSuffix}.${ext}`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to export generated article');
+  }
+};
+
   const handleReset = () => {
     setAnalysisResults(null);
     setReleaseNotes('');
@@ -317,6 +386,50 @@ ${generatedArticle
   }
 };
 
+  const handleExportDraft = async (
+  format: 'markdown' | 'xml' | 'json',
+  article: any,
+  targetLanguage?: 'FI' | 'DE' | 'NL' | 'FR',
+) => {
+  if (!article.draftUpdate || !article.updateSummary) return;
+
+  setDraftExportLoading(true);
+  try {
+    const response = await fetch('/api/export-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        articleTitle: article.title,
+        suggestion: article.updateSummary,
+        draftUpdate: article.draftUpdate,
+        articleUrl: article.url,
+        releaseVersion: version || 'Unknown',
+        format,
+        targetLanguage, // can be undefined
+      }),
+    });
+
+    if (!response.ok) throw new Error('Export failed');
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${article.title
+      .toLowerCase()
+      .replace(/\s+/g, '-')}-draft-update.${
+      format === 'xml' ? 'xml' : format === 'json' ? 'json' : 'md'
+    }`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to export draft');
+  } finally {
+    setDraftExportLoading(false);
+  }
+};
+
+
 /*  const exportAnalysisToMarkdown = () => {
     if (!analysisResults) return;
     const md = `# Release ${version} - Help Article Audit\n\n## Summary\n- **Version**: ${version}\n- **Release Date**: ${releaseDate}\n- **Matching Articles**: ${analysisResults.articles.length}\n- **Coverage**: ${calculateCoverage(analysisResults.articles)}%\n- **Documentation Gaps**: ${analysisResults.gaps.length}\n\n## Articles to Update\n${analysisResults.articles.map(a => `- ${a.title} (${Math.round(a.relevanceScore)}%)`).join('\n')}\n\n## Documentation Gaps\n${analysisResults.gaps.map(g => `- ${g.topic}`).join('\n')}`;
@@ -343,10 +456,13 @@ ${generatedArticle
     header: {
       backgroundColor: '#ffffff',
       borderBottom: '1px solid #e0e0e0',
-      padding: '24px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      // align with main:
+      maxWidth: '1200px',
+      margin: '0 auto',
+      padding: '24px 24px',
     } as React.CSSProperties,
-    
+
     headerTitle: {
       fontSize: '32px',
       fontWeight: 'bold',
@@ -366,6 +482,8 @@ ${generatedArticle
       borderBottom: '1px solid #e0e0e0',
       backgroundColor: '#ffffff',
       padding: '0 24px',
+      maxWidth: '1200px',
+      margin: '0 auto',
     } as React.CSSProperties,
     
     tabButton: (active: boolean) => ({
@@ -391,10 +509,10 @@ ${generatedArticle
     
     sidebar: {
       backgroundColor: '#ffffff',
-      border: '1px solid #d0d0d0',
+      border: '1px solid #e5e7eb',
       borderRadius: '12px',
-      padding: '24px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      padding: '20px',
+      boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
       position: 'sticky',
       top: '100px',
       height: 'fit-content',
@@ -522,7 +640,7 @@ ${generatedArticle
     buttonPrimary: {
       flex: 1,
       padding: '12px 16px',
-      backgroundColor: '#0066cc',
+      backgroundColor: '#005bb5',
       color: '#ffffff',
       border: 'none',
       borderRadius: '8px',
@@ -615,11 +733,12 @@ ${generatedArticle
     } as React.CSSProperties,
     
     card: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #d0d0d0',
-      borderRadius: '8px',
-      padding: '20px',
-    } as React.CSSProperties,
+    backgroundColor: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
+  } as React.CSSProperties,
     
     cardTitle: {
       fontSize: '18px',
@@ -629,24 +748,26 @@ ${generatedArticle
     } as React.CSSProperties,
     
     articleCard: {
-      backgroundColor: '#f8f8f8',
-      border: '1px solid #d0d0d0',
-      borderRadius: '8px',
-      padding: '16px',
+      backgroundColor: '#ffffff',
+      border: '1px solid #e5e7eb',
+      borderRadius: '12px',
+      padding: '20px',
+      boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
       marginBottom: '12px',
     } as React.CSSProperties,
 
     generatedContent: {
       backgroundColor: '#f8f8f8',
-      border: '1px solid #d0d0d0',
+      border: '1px solid #e5e7eb',
       borderRadius: '8px',
-      padding: '16px',
+      padding: '20px',
       fontFamily: 'monospace',
       fontSize: '12px',
       maxHeight: '400px',
       overflow: 'auto',
       marginBottom: '16px',
       color: '#000000',
+      boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
       whiteSpace: 'pre-wrap' as const,
       wordWrap: 'break-word' as const,
     } as React.CSSProperties,
@@ -663,7 +784,7 @@ ${generatedArticle
     <div style={styles.container}>
       {/* HEADER */}
       <header style={styles.header}>
-        <h1 style={styles.headerTitle}>⚡ Release Notes Analyzer</h1>
+        <h1 style={styles.headerTitle}>⚡ Documentation Update Assistant</h1>
         <p style={styles.headerDesc}>Analyze releases to update existing help articles. Generate new articles with AI assistance.</p>
       </header>
 
@@ -730,13 +851,26 @@ ${generatedArticle
                     onChange={handleFileUpload}
                     style={styles.fileInput}
                   />
-                  <button
-                    style={styles.fileUploadButton}
-                    onClick={() => fileInputRef.current?.click()}
+
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
                   >
-                    📤 Click to upload file or drag & drop
-                  </button>
-                  {fileName && <div style={styles.fileName}>✓ Loaded: {fileName}</div>}
+                    <button
+                      style={{
+                        ...styles.fileUploadButton,
+                        borderColor: isDragOver ? '#0284c7' : '#d0d0d0',
+                        backgroundColor: isDragOver ? '#e0f2fe' : '#f0f0f0',
+                        color: isDragOver ? '#0c4a6e' : '#666666',
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      📤 Click to upload file or drag & drop
+                    </button>
+
+                    {fileName && <div style={styles.fileName}>✓ Loaded: {fileName}</div>}
+                  </div>
                 </>
               )}
 
@@ -866,19 +1000,34 @@ ${generatedArticle
 
                             <div style={{ fontSize: '13px', color: '#666666', margin: 0 }}>
                               <span style={{ display: 'block', marginBottom: '8px' }}>
-                                {Math.round(article.relevanceScore)}% match
+                           
                               </span>
                             </div>
 
-                            <div style={{ marginTop: '8px', fontSize: '13px', color: '#555' }}>
-                              <strong>Keywords:</strong> {Math.round(article.relevanceScore)}%
-                            </div>
 
                             {/* 1) UPDATED suggestion line */}
-                            <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
+                            <div style={{ marginTop: '4px', fontSize: '13px', color: '#666' }}>
                               <strong>Suggestion:</strong>{' '}
                               {article.updateSummary || article.suggestedUpdates || 'Review for relevance'}
                             </div>
+
+                            <div style={{ marginTop: '12px' }}>
+                                <a
+                                  href={article.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    color: '#0066cc',
+                                    fontSize: '13px',
+                                    fontWeight: '500',
+                                    textDecoration: 'none',
+                                    borderBottom: '1px solid #0066cc',
+                                    paddingBottom: '2px',
+                                  }}
+                                >
+                                  View original article →
+                                </a>
+                              </div>
 
                             {/* 2) NEW: View draft update button */}
                             <div style={{ marginTop: '8px' }}>
@@ -921,13 +1070,129 @@ ${generatedArticle
                                 }}
                               >
                                 {article.draftUpdate}
+
+                                <div
+                                  style={{
+                                    marginTop: '12px',
+                                    paddingTop: '12px',
+                                    borderTop: '1px solid #e5e7eb',
+                                    display: 'flex',
+                                    gap: '8px',
+                                    flexWrap: 'wrap',
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExportDraft('markdown', article)}
+                                    disabled={draftExportLoading}
+                                    style={{
+                                      padding: '6px 12px',
+                                      fontSize: '12px',
+                                      backgroundColor: '#059669',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: draftExportLoading ? 'not-allowed' : 'pointer',
+                                      opacity: draftExportLoading ? 0.6 : 1,
+                                    }}
+                                  >
+                                    📄 Markdown
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExportDraft('xml', article)}
+                                    disabled={draftExportLoading}
+                                    style={{
+                                      padding: '6px 12px',
+                                      fontSize: '12px',
+                                      backgroundColor: '#dc2626',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: draftExportLoading ? 'not-allowed' : 'pointer',
+                                      opacity: draftExportLoading ? 0.6 : 1,
+                                    }}
+                                  >
+                                    ⚙️ XML
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExportDraft('json', article)}
+                                    disabled={draftExportLoading}
+                                    style={{
+                                      padding: '6px 12px',
+                                      fontSize: '12px',
+                                      backgroundColor: '#7c3aed',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: draftExportLoading ? 'not-allowed' : 'pointer',
+                                      opacity: draftExportLoading ? 0.6 : 1,
+                                    }}
+                                  >
+                                    {} JSON
+                                  </button>
+                                </div>
+                                
+
+                              <div
+                                style={{
+                                  marginTop: '8px',
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: '8px',
+                                  fontSize: '11px',
+                                  color: '#666666',
+                                }}
+                              >
+                                <span style={{ fontWeight: 600 }}>Translate draft to (Markdown):</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleExportDraft('markdown', article, 'FI')}
+                                  disabled={draftExportLoading}
+                                  style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                                >
+                                  Finnish
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleExportDraft('markdown', article, 'DE')}
+                                  disabled={draftExportLoading}
+                                  style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                                >
+                                  German
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleExportDraft('markdown', article, 'NL')}
+                                  disabled={draftExportLoading}
+                                  style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                                >
+                                  Dutch
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleExportDraft('markdown', article, 'FR')}
+                                  disabled={draftExportLoading}
+                                  style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                                >
+                                  French
+                                </button>
                               </div>
-                            )}
+                            </div>
+                          )}
+                            
+
                           </div>
                         ))}
                       </div>
 
+                  
                   {/* GAPS */}
+
+                  {/* 
                   {analysisResults.gaps.length > 0 && (
                     <div style={{...styles.card, backgroundColor: '#fffbf0', borderColor: '#ffd699'}}>
                       <h3 style={styles.cardTitle}>📍 Documentation Gaps</h3>
@@ -941,77 +1206,137 @@ ${generatedArticle
                       ))}
                     </div>
                   )}
+                  */}
                 </>
               )}
 
-              {!editingNewArticle && (
-                  <section
+              {!isLoading && analysisResults && (
+                <section
+                  style={{
+                    marginBottom: '24px',
+                    padding: '20px',
+                    backgroundColor: '#eff6ff',
+                    border: '2px solid #0284c7',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <h3
                     style={{
-                      marginBottom: '24px',
-                      padding: '20px',
-                      backgroundColor: '#eff6ff',
-                      border: '2px solid #0284c7',
-                      borderRadius: '8px',
+                      margin: '0 0 12px 0',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      color: '#0c4a6e',
                     }}
                   >
-                    <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 'bold', color: '#0c4a6e' }}>
-                      📥 Export Analysis Results
-                    </h3>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => handleExport('xml')}
-                        disabled={exportLoading}
+                    📥 Export Analysis
+                  </h3>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <button
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      disabled={exportLoading}
+                      style={{
+                        padding: '12px 16px',
+                        backgroundColor: '#0284c7',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: exportLoading ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        opacity: exportLoading ? 0.6 : 1,
+                        width: '100%',
+                        textAlign: 'left',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      Select format {showExportMenu ? '▲' : '▼'}
+                    </button>
+
+                    {showExportMenu && (
+                      <div
                         style={{
-                          padding: '10px 16px',
-                          backgroundColor: '#dc2626',
-                          color: 'white',
-                          border: 'none',
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #0284c7',
                           borderRadius: '4px',
-                          cursor: exportLoading ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          opacity: exportLoading ? 0.6 : 1,
+                          marginTop: '4px',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                          zIndex: 10,
+                          overflow: 'hidden',
                         }}
                       >
-                        {exportLoading ? '⏳' : '📄'} XML
-                      </button>
-                      <button
-                        onClick={() => handleExport('markdown')}
-                        disabled={exportLoading}
-                        style={{
-                          padding: '10px 16px',
-                          backgroundColor: '#059669',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: exportLoading ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          opacity: exportLoading ? 0.6 : 1,
-                        }}
-                      >
-                        {exportLoading ? '⏳' : '📋'} Markdown
-                      </button>
-                      <button
-                        onClick={() => handleExport('json')}
-                        disabled={exportLoading}
-                        style={{
-                          padding: '10px 16px',
-                          backgroundColor: '#7c3aed',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: exportLoading ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          opacity: exportLoading ? 0.6 : 1,
-                        }}
-                      >
-                        {exportLoading ? '⏳' : '⚙️'} JSON
-                      </button>
-                    </div>
-                  </section>
-                )}
+                        <button
+                          onClick={() => {
+                            handleExport('markdown');
+                            setShowExportMenu(false);
+                          }}
+                          disabled={exportLoading}
+                          style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            backgroundColor: '#ffffff',
+                            color: '#0c4a6e',
+                            border: 'none',
+                            cursor: exportLoading ? 'not-allowed' : 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            textAlign: 'left',
+                            borderBottom: '1px solid #e0e0e0',
+                          }}
+                        >
+                          📝 Download as Markdown
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleExport('xml');
+                            setShowExportMenu(false);
+                          }}
+                          disabled={exportLoading}
+                          style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            backgroundColor: '#ffffff',
+                            color: '#0c4a6e',
+                            border: 'none',
+                            cursor: exportLoading ? 'not-allowed' : 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            textAlign: 'left',
+                            borderBottom: '1px solid #e0e0e0',
+                          }}
+                        >
+                          ⚙️ Download as XML
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleExport('json');
+                            setShowExportMenu(false);
+                          }}
+                          disabled={exportLoading}
+                          style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            backgroundColor: '#ffffff',
+                            color: '#0c4a6e',
+                            border: 'none',
+                            cursor: exportLoading ? 'not-allowed' : 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            textAlign: 'left',
+                          }}
+                        >
+                          {} 🏷️ Download as JSON
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
 
             </div>
           </>
@@ -1091,16 +1416,58 @@ ${generatedArticle
                     </button>
                   </div>
                 </div>
+                
+                    {/* NEW: translation for generated article */}
+                    <div
+                      style={{
+                        marginBottom: '16px',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        fontSize: '11px',
+                        color: '#666666',
+                      }}
+                    >
+                      <span style={{ fontWeight: 600 }}>Translate generated article to:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleExportGeneratedWithTranslation('markdown', 'FI')}
+                        style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                      >
+                        Finnish (MD)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportGeneratedWithTranslation('markdown', 'DE')}
+                        style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                      >
+                        German (MD)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportGeneratedWithTranslation('markdown', 'NL')}
+                        style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                      >
+                        Dutch (MD)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportGeneratedWithTranslation('markdown', 'FR')}
+                        style={{ border: 'none', background: 'none', color: '#0284c7', cursor: 'pointer' }}
+                      >
+                        French (MD)
+                      </button>
+                    </div>
 
-                <div style={styles.buttonGroup}>
-                  <button
-                    style={styles.buttonSecondary}
-                    onClick={() => {
-                      setGeneratedArticle(null);
-                      setArticleTopic('');
-                      setArticleContext('');
-                    }}
-                  >
+                    <div style={styles.buttonGroup}>
+                      <button
+                        style={styles.buttonSecondary}
+                        onClick={() => {
+                          setGeneratedArticle(null);
+                          setArticleTopic('');
+                          setArticleContext('');
+                        }}
+                      >
                     ✏️ Create Another
                   </button>
                 </div>
