@@ -17,6 +17,7 @@ AI-assisted tool for mapping Solibri release notes to existing help articles, id
 
 - Next.js (App Router)
 - TypeScript / React
+- Zendesk integration for article fetching
 - Anthropic Claude (Haiku 4.5) for analysis & drafting
 - OpenAI embeddings for article matching
 - DeepL API for translations
